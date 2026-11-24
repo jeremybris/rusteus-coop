@@ -345,3 +345,89 @@ fn context_registry_api_round_trips_and_backs_up() {
     );
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn older_hook_settings_are_translated_to_proto_input() {
+    use nucleus_hook::proto_input::{DrawFakeCursor, MoveWindowHook, SetWindowPosHook};
+    let mut engine = ScriptEngine::new().unwrap();
+    let config = engine
+        .load_handler_script(
+            r#"
+            Game.GUID = "old-hooks";
+            Game.GameName = "Old Hooks";
+            Game.ExecutableName = "old.exe";
+            Game.SupportsMultipleKeyboardsAndMice = true;
+            Game.SetWindowHook = true;
+            Game.HookFilterRawInput = true;
+            Game.HookFilterMouseMessages = true;
+            Game.HookGetKeyState = false;
+            Game.SendNormalMouseInput = false;
+            Game.SendScrollWheel = true;
+            Game.PreventWindowDeactivation = true;
+        "#,
+        )
+        .unwrap();
+    assert!(config.proto_from_legacy_hooks);
+    assert!(config.use_proto_input);
+    let p = &config.proto_input;
+    assert!(p.inject_runtime_easyhook && !p.inject_startup);
+    assert_eq!(p.set_window_pos_hook, SetWindowPosHook::True);
+    assert_eq!(p.move_window_hook, MoveWindowHook::True);
+    assert!(p.raw_input_filter && p.register_raw_input_hook && p.get_raw_input_data_hook);
+    assert!(p.message_filter_hook && p.mouse_move_filter && p.mouse_button_filter);
+    assert!(p.get_cursor_pos_hook && p.set_cursor_pos_hook, "defaults stay enabled");
+    assert!(!p.get_key_state_hook, "explicitly disabled hook stays off");
+    assert!(!p.send_mouse_movement_messages && !p.send_mouse_button_messages);
+    assert!(p.send_keyboard_button_messages && p.send_mouse_wheel_messages);
+    assert!(p.focus_hooks && p.window_activate_filter);
+    assert_eq!(p.draw_fake_cursor, DrawFakeCursor::True);
+
+    // Start-time hooks switch to startup injection.
+    let mut engine = ScriptEngine::new().unwrap();
+    let early = engine
+        .load_handler_script(
+            r#"
+            Game.GUID = "old-hooks-start";
+            Game.GameName = "Old Hooks Start";
+            Game.ExecutableName = "old.exe";
+            Game.HookInit = true;
+            Game.BlockRawInput = true;
+        "#,
+        )
+        .unwrap();
+    assert!(early.proto_from_legacy_hooks);
+    assert!(early.proto_input.inject_startup && early.proto_input.block_raw_input_hook);
+
+    // A handler that configures ProtoInput itself is left exactly as written.
+    let mut engine = ScriptEngine::new().unwrap();
+    let own = engine
+        .load_handler_script(
+            r#"
+            Game.GUID = "own-proto";
+            Game.GameName = "Own Proto";
+            Game.ExecutableName = "own.exe";
+            Game.SetWindowHook = true;
+            Game.ProtoInput.InjectStartup = true;
+            Game.ProtoInput.TranslateXinputtoMKB = true;
+            Game.ProtoInput.TranslateXButtonA = 70;
+            Game.ProtoInput.TranslateXAccelration = 9;
+            Game.ProtoInput.ScaleFromX = 1280;
+        "#,
+        )
+        .unwrap();
+    assert!(!own.proto_from_legacy_hooks);
+    assert_eq!(own.proto_input.set_window_pos_hook, SetWindowPosHook::None);
+    assert!(own.proto_extra.translate_xinput_to_mkb);
+    assert_eq!(own.proto_extra.button_a, 70);
+    assert_eq!(own.proto_extra.acceleration, 9);
+    assert_eq!(own.proto_extra.scale_from_x, 1280);
+
+    // No hook settings at all: nothing is derived.
+    let mut engine = ScriptEngine::new().unwrap();
+    let plain = engine
+        .load_handler_script(
+            r#"Game.GUID = "plain"; Game.GameName = "Plain"; Game.ExecutableName = "p.exe";"#,
+        )
+        .unwrap();
+    assert!(!plain.proto_from_legacy_hooks && !plain.use_proto_input);
+}

@@ -988,6 +988,10 @@ pub fn render_setup_view(
     app_settings: &nucleus_profile::AppSettings,
     cx: &mut Context<MainWindow>,
 ) -> AnyElement {
+    // Individual keyboards and mice are offered whenever the game's handler supports them.
+    let handler_multi_kbm = selected_handler.map_or(false, |h| {
+        h.supports_raw_input || h.supports_multiple_keyboards_and_mice
+    });
     let game_title = selected_handler
         .map(|h| h.game_name.as_str())
         .unwrap_or("No Game Selected (choose from Library tab)");
@@ -1609,7 +1613,7 @@ pub fn render_setup_view(
                                                     if !keyboard_taken {
                                                         dev_opts.push("Keyboard & Mouse (Paired)".to_string());
                                                     }
-                                                    if app_settings.developer_mode {
+                                                    if app_settings.developer_mode || handler_multi_kbm {
                                                         // One entry per attached keyboard/mouse, plus pairs.
                                                         dev_opts.extend(nucleus_input::proto_assignment_labels(
                                                             &nucleus_input::cached_raw_devices(),

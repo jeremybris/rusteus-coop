@@ -172,6 +172,15 @@ pub struct HandlerContext {
     /// GOG language name exposed as `Context.GogLang`.
     #[serde(default)]
     pub gog_lang: Option<String>,
+    /// Answers to `Game.CustomUserGeneralPrompts` (shared by all players).
+    #[serde(default)]
+    pub custom_user_general_values: Vec<String>,
+    /// Answers to `Game.CustomUserPlayerPrompts` for this player.
+    #[serde(default)]
+    pub custom_user_player_values: Vec<String>,
+    /// Answers to `Game.CustomUserInstancePrompts` for this instance.
+    #[serde(default)]
+    pub custom_user_instance_values: Vec<String>,
     /// Set when the handler called `Context.HideDesktop()`.
     #[serde(default)]
     pub hide_desktop_requested: bool,

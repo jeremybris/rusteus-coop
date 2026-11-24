@@ -633,8 +633,13 @@ impl MainWindow {
             options.push("Keyboard & Mouse (Paired)".to_string());
         }
 
-        // 3. ProtoInput Individual Keyboards & Mice (Developer Mode only)
-        if self.app_settings.developer_mode {
+        // 3. Individual keyboards & mice, when the selected game's handler supports them
+        let handler_multi_kbm = self.selected_game.as_deref().is_some_and(|guid| {
+            self.handlers.iter().any(|h| {
+                h.guid == guid && (h.supports_raw_input || h.supports_multiple_keyboards_and_mice)
+            })
+        });
+        if self.app_settings.developer_mode || handler_multi_kbm {
             // One entry per attached keyboard/mouse, plus pairs.
             options.extend(nucleus_input::proto_assignment_labels(
                 &nucleus_input::cached_raw_devices(),

@@ -483,10 +483,175 @@ pub fn extract_proto_input(game: &JsObject, ctx: &mut Context) -> ProtoInputConf
     c
 }
 
+/// Reads the `Game.ProtoInput` options served by newer ProtoInput builds: controller/mouse
+/// translation, input re-registration, sub-window messages and manual scaling.
+pub fn extract_proto_extra(
+    game: &JsObject,
+    ctx: &mut Context,
+) -> nucleus_hook::proto_extras::ProtoInputExtraConfig {
+    let mut c = nucleus_hook::proto_extras::ProtoInputExtraConfig::default();
+    let Some(pi) = get(game, "ProtoInput", ctx).and_then(|v| v.as_object().cloned()) else {
+        return c;
+    };
+    macro_rules! b {
+        ($field:ident, $key:literal) => {
+            if let Some(v) = get_bool(&pi, $key, ctx) {
+                c.$field = v;
+            }
+        };
+    }
+    macro_rules! n {
+        ($field:ident, $key:literal) => {
+            if let Some(v) = get_i64(&pi, $key, ctx) {
+                c.$field = v as i32;
+            }
+        };
+    }
+    b!(translate_xinput_to_mkb, "TranslateXinputtoMKB");
+    b!(translate_mkb_to_xinput, "TranslateMKBtoXinput");
+    b!(re_register_input, "ReRegisterInput");
+    b!(pointer_in_mouse, "PointerInMouse");
+    b!(message_sub_windows, "MessageSubWindows");
+    b!(get_cursor_info_hook, "GetCursorInfoHook");
+    b!(set_windows_hook_hook, "SetWindowsHookHook");
+    n!(scale_from_x, "ScaleFromX");
+    n!(scale_from_y, "ScaleFromY");
+    n!(button_a, "TranslateXButtonA");
+    n!(button_b, "TranslateXButtonB");
+    n!(button_x, "TranslateXButtonX");
+    n!(button_y, "TranslateXButtonY");
+    n!(button_rs, "TranslateXButtonRS");
+    n!(button_ls, "TranslateXButtonLS");
+    n!(button_right, "TranslateXButtonRight");
+    n!(button_left, "TranslateXButtonLeft");
+    n!(button_up, "TranslateXButtonUp");
+    n!(button_down, "TranslateXButtonDown");
+    n!(stick_r, "TranslateXStickR");
+    n!(stick_l, "TranslateXStickL");
+    n!(stick_right, "TranslateXStickRight");
+    n!(stick_left, "TranslateXStickLeft");
+    n!(stick_up, "TranslateXStickUp");
+    n!(stick_down, "TranslateXStickDown");
+    n!(button_option, "TranslateXButtonOption");
+    n!(button_start, "TranslateXButtonStart");
+    n!(sensitivity, "TranslateXSensitivity");
+    // The original spells this option "TranslateXAccelration".
+    n!(acceleration, "TranslateXAcceleration");
+    n!(acceleration, "TranslateXAccelration");
+    n!(deadzone, "TranslateXDeadzone");
+    b!(swap_sticks, "TranslateXSwapSticks");
+    b!(scanner, "TranslateXScanner");
+    b!(shoulders_next_point, "TranslateXShouldersNextPoint");
+    b!(a_static, "TranslateXAstatic");
+    b!(a_point_click, "TranslateXAPointClick");
+    b!(a_point_move, "TranslateXAPointMove");
+    b!(b_static, "TranslateXBstatic");
+    b!(b_point_click, "TranslateXBPointClick");
+    b!(b_point_move, "TranslateXBPointMove");
+    b!(x_static, "TranslateXXstatic");
+    b!(x_point_click, "TranslateXXPointClick");
+    b!(x_point_move, "TranslateXXPointMove");
+    b!(y_static, "TranslateXYstatic");
+    b!(y_point_click, "TranslateXYPointClick");
+    b!(y_point_move, "TranslateXYPointMove");
+    c
+}
+
 /// Whether the handler asked for ProtoInput to be injected at all.
 pub fn proto_input_requested(c: &ProtoInputConfig) -> bool {
     c.inject_startup
         || c.inject_runtime_remote_load
         || c.inject_runtime_easyhook
         || c.inject_runtime_easyhook_stealth
+}
+
+/// Translates the hook settings of the original Nucleus hook DLL (`Game.SetWindowHook`,
+/// `Game.HookFilterRawInput`, `Game.SendNormalMouseInput`, ...) into the equivalent
+/// ProtoInput configuration.
+///
+/// That DLL is not part of this project; ProtoInput is its successor and provides the same
+/// hooks. Returns `None` when the handler uses none of the older hook features.
+pub fn proto_from_legacy_hooks(cfg: &crate::HandlerConfig) -> Option<ProtoInputConfig> {
+    let l = &cfg.legacy;
+    let multi_kbm = cfg.supports_multiple_keyboards_and_mice;
+    let wants_hooks = l.set_window_hook
+        || l.set_window_hook_start
+        || l.hook_init
+        || l.block_raw_input
+        || l.inject_hook_xinput
+        || l.inject_dinput_to_xinput_translation
+        || cfg.prevent_window_deactivation
+        || multi_kbm;
+    if !wants_hooks {
+        return None;
+    }
+
+    let mut p = ProtoInputConfig::default();
+    // Settings that must be in place before the game creates its window are applied by
+    // starting the game through ProtoInput; everything else is injected once it runs.
+    if l.hook_init || l.set_window_hook_start || l.block_raw_input {
+        p.inject_startup = true;
+    } else {
+        p.inject_runtime_easyhook = true;
+    }
+
+    if l.set_window_hook || l.set_window_hook_start {
+        p.set_window_pos_hook = SetWindowPosHook::True;
+        p.move_window_hook = MoveWindowHook::True;
+    }
+    if cfg.prevent_window_deactivation || cfg.hook_focus && multi_kbm {
+        p.focus_hooks = true;
+        p.window_activate_filter = true;
+        p.window_activate_app_filter = true;
+        p.mouse_activate_filter = true;
+        p.message_filter_hook = true;
+    }
+    if l.block_raw_input {
+        p.block_raw_input_hook = true;
+    }
+    if l.inject_hook_xinput || l.inject_dinput_to_xinput_translation {
+        p.xinput_hook = true;
+    }
+    if l.inject_dinput_to_xinput_translation {
+        p.use_dinput_redirection = true;
+    }
+
+    if multi_kbm {
+        p.register_raw_input_hook = l.hook_re_register_raw_input || l.hook_filter_raw_input;
+        p.get_raw_input_data_hook = l.hook_filter_raw_input;
+        p.raw_input_filter = l.hook_filter_raw_input;
+        if l.hook_filter_mouse_messages {
+            p.message_filter_hook = true;
+            p.mouse_move_filter = true;
+            p.mouse_button_filter = true;
+            p.mouse_wheel_filter = true;
+            p.keyboard_button_filter = true;
+        }
+        p.get_cursor_pos_hook = l.hook_get_cursor_pos;
+        p.set_cursor_pos_hook = l.hook_set_cursor_pos;
+        p.get_key_state_hook = l.hook_get_key_state;
+        p.get_async_key_state_hook = l.hook_get_async_key_state;
+        p.get_keyboard_state_hook = l.hook_get_keyboard_state;
+        p.cursor_visibility_hook = l.hook_mouse_visibility;
+        p.send_mouse_movement_messages = l.send_normal_mouse_input;
+        p.send_mouse_button_messages = l.send_normal_mouse_input;
+        p.send_mouse_dbl_clk_messages = l.send_normal_mouse_input;
+        p.send_keyboard_button_messages = l.send_normal_keyboard_input;
+        p.send_mouse_wheel_messages = l.send_scroll_wheel;
+        if l.draw_fake_mouse_cursor {
+            p.draw_fake_cursor = DrawFakeCursor::True;
+        }
+        p.enable_focus_message_loop = l.send_fake_focus_msg;
+        if l.send_fake_focus_msg {
+            p.focus_loop_wm_activate = l.fake_focus_send_activate;
+            p.focus_loop_wm_activateapp = l.fake_focus_send_activate;
+            p.focus_loop_wm_ncactivate = l.fake_focus_send_activate;
+            p.focus_loop_wm_setfocus = true;
+            p.focus_loop_wm_mouseactivate = true;
+            if cfg.fake_focus_interval > 0 {
+                p.focus_loop_interval_milliseconds = cfg.fake_focus_interval;
+            }
+        }
+    }
+    Some(p)
 }

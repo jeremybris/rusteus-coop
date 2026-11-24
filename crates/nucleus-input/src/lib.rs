@@ -24,6 +24,6 @@ pub use hotkeys::{
     HOTKEY_ID_MERGER_SWITCH, HOTKEY_ID_REMINDER, HOTKEY_ID_RESET_WINDOWS, HOTKEY_ID_SET_FOCUS,
     HOTKEY_ID_STOP, HOTKEY_ID_SWITCH, HOTKEY_ID_TOPMOST, HotkeyBinding, HotkeyListener,
 };
-pub use lock::{DEFAULT_LOCK_TOGGLE_KEY, InputLock, global_input_locked};
+pub use lock::{DEFAULT_LOCK_TOGGLE_KEY, InputLock, global_input_locked, request_input_lock};
 pub use manager::InputManager;
 pub use raw_input::{RawInputData, RawInputHandler};

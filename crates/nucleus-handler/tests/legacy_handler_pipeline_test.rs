@@ -207,3 +207,109 @@ fn delete_files_is_skipped_without_confirmation() {
     let _ = std::fs::remove_dir_all(root);
     let _ = std::fs::remove_dir_all(root2);
 }
+
+#[test]
+fn play_first_smart_steam_emu_and_custom_prompts() {
+    let (root, game, staging) = setup("playfirst");
+    // A stand-in for the bundled SmartSteamEmu so its loader can be deployed.
+    let utils = std::env::current_exe()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("utils");
+    let sse = utils.join("SmartSteamEmu");
+    std::fs::create_dir_all(&sse).unwrap();
+    for f in ["SmartSteamLoader.exe", "SmartSteamLoader_x64.exe", "SmartSteamEmu.dll"] {
+        if !sse.join(f).exists() {
+            std::fs::write(sse.join(f), b"stub").unwrap();
+        }
+    }
+
+    let script = r#"
+        Game.GUID = "legacy-playfirst";
+        Game.GameName = "Legacy PlayFirst";
+        Game.ExecutableName = "game.exe";
+        Game.SymlinkGame = true;
+        Game.SymlinkExe = false;
+        Game.SteamID = "12345";
+        Game.NeedsSteamEmulation = true;
+        Game.GamePlayBeforeGameSetup = true;
+        Game.UseX360ce = true;
+        Game.CustomUserGeneralPrompts = ["Server address"];
+        Game.CustomUserPlayerPrompts = ["Character name"];
+        Game.SaveCustomUserPlayerValues = true;
+        Game.Play = function() {
+            // With GamePlayBeforeGameSetup the input tools are not deployed yet.
+            var early = !Context.FileExists(Context.RootFolder + "\\x360ce.ini");
+            Context.WriteTextFile(Context.RootFolder + "\\order.txt",
+                [String(early), Context.CustomUserGeneralValues[0], Context.CustomUserPlayerValues[0]]);
+            Context.StartArguments = "-name " + Context.CustomUserPlayerValues[0];
+        };
+    "#;
+    let mut engine = ScriptEngine::new().unwrap();
+    let config = engine.load_handler_script(script).unwrap();
+    drop(engine);
+    assert!(config.legacy.game_play_before_game_setup);
+
+    let asked = Arc::new(AtomicUsize::new(0));
+    let make = |asked: Arc<AtomicUsize>, staging: PathBuf| {
+        GameHandler::new(config.clone(), game.clone(), game.join("game.exe"), staging, 2)
+            .with_script_source(script.to_string())
+            .with_text_prompt_handler(Arc::new(move |message: &str, default: &str| {
+                asked.fetch_add(1, Ordering::SeqCst);
+                if !default.is_empty() {
+                    default.to_string()
+                } else if message.contains("Server") {
+                    "10.0.0.5".to_string()
+                } else if message.starts_with("Player 2") {
+                    "Zed".to_string()
+                } else {
+                    "Ann".to_string()
+                }
+            }))
+    };
+    let mut handler = make(asked.clone(), staging.clone());
+    // Remove answers remembered by an earlier run of this test.
+    let _ = std::fs::remove_dir_all(utils.parent().unwrap().join("content").join("custom_values"));
+    handler.prepare_instances().expect("prepare_instances");
+
+    for (idx, folder) in handler.instance_folders.iter().enumerate() {
+        let name = if idx == 0 { "Ann" } else { "Zed" };
+        let order = std::fs::read_to_string(folder.join("order.txt")).unwrap();
+        let lines: Vec<&str> = order.lines().collect();
+        assert_eq!(lines, vec!["true", "10.0.0.5", name]);
+        assert!(folder.join("x360ce.ini").exists(), "tools are still deployed afterwards");
+
+        // The instance starts through the SmartSteamEmu loader, which gets the real
+        // executable and the arguments Game.Play produced.
+        let ctx = &handler.contexts[idx];
+        assert!(ctx.exe_path.contains("SmartSteamLoader"), "{}", ctx.exe_path);
+        assert!(ctx.start_arguments.is_empty());
+        let ini = std::fs::read_to_string(
+            std::path::Path::new(&ctx.exe_path)
+                .parent()
+                .unwrap()
+                .join("SmartSteamEmu.ini"),
+        )
+        .unwrap();
+        assert!(ini.contains("game.exe"), "{ini}");
+        assert!(ini.contains(&format!("-name {name}")), "{ini}");
+        assert!(ini.contains("12345"), "{ini}");
+    }
+    // One general prompt for the session plus one player prompt each.
+    assert_eq!(asked.load(Ordering::SeqCst), 3);
+    handler.stop().expect("stop");
+
+    // Saved player answers are reused; only the general prompt is asked again.
+    let asked_again = Arc::new(AtomicUsize::new(0));
+    let (root2, _game2, staging2) = setup("playfirst2");
+    let mut second = make(asked_again.clone(), staging2);
+    second.prepare_instances().expect("prepare_instances");
+    assert_eq!(asked_again.load(Ordering::SeqCst), 1);
+    let order = std::fs::read_to_string(second.instance_folders[1].join("order.txt")).unwrap();
+    assert!(order.contains("Zed"));
+    second.stop().expect("stop");
+
+    let _ = std::fs::remove_dir_all(root);
+    let _ = std::fs::remove_dir_all(root2);
+}

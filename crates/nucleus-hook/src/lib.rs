@@ -9,6 +9,7 @@ pub mod ipc;
 pub mod memory_engine;
 pub mod pe_inspector;
 pub mod privilege;
+pub mod proto_extras;
 pub mod proto_input;
 pub mod remote_call;
 pub mod remote_memory;

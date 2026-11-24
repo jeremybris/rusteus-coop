@@ -337,6 +337,14 @@ pub struct HandlerConfig {
     /// Full `Game.ProtoInput.*` option block.
     #[serde(default)]
     pub proto_input: nucleus_hook::proto_input::ProtoInputConfig,
+    /// The ProtoInput configuration was derived from the older `Game.Hook*` style settings
+    /// because the handler does not configure ProtoInput itself. Such handlers still start
+    /// when ProtoInput is not installed, only without those hooks.
+    #[serde(default)]
+    pub proto_from_legacy_hooks: bool,
+    /// `Game.ProtoInput` options that need a newer ProtoInput build (translation, scaling).
+    #[serde(default)]
+    pub proto_extra: nucleus_hook::proto_extras::ProtoInputExtraConfig,
 
     // Options configured via Game.AddOption
     pub options: Vec<HandlerOption>,
@@ -605,6 +613,8 @@ impl Default for HandlerConfig {
 
             legacy: crate::legacy_props::LegacyGameProps::default(),
             proto_input: nucleus_hook::proto_input::ProtoInputConfig::default(),
+            proto_from_legacy_hooks: false,
+            proto_extra: nucleus_hook::proto_extras::ProtoInputExtraConfig::default(),
 
             options: Vec::new(),
             custom_steps: Vec::new(),

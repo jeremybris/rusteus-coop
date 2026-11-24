@@ -1838,6 +1838,13 @@ impl ScriptEngine {
 
         config.legacy = crate::legacy_props::LegacyGameProps::extract(&game_obj, &mut self.context);
         config.proto_input = crate::legacy_props::extract_proto_input(&game_obj, &mut self.context);
+        config.proto_extra = crate::legacy_props::extract_proto_extra(&game_obj, &mut self.context);
+        if !crate::legacy_props::proto_input_requested(&config.proto_input) {
+            if let Some(derived) = crate::legacy_props::proto_from_legacy_hooks(&config) {
+                config.proto_input = derived;
+                config.proto_from_legacy_hooks = true;
+            }
+        }
         config.use_proto_input = config.use_proto_input
             || crate::legacy_props::proto_input_requested(&config.proto_input);
 

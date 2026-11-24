@@ -268,6 +268,12 @@ pub struct ProtoSession {
     dll_folder: PathBuf,
     /// ProtoInput instance handle per player slot.
     handles: HashMap<usize, u32>,
+    /// Options for the optional (newer-build) ProtoInput features.
+    extra: nucleus_hook::proto_extras::ProtoInputExtraConfig,
+    /// Missing-feature names already reported, so each is logged once per session.
+    reported_missing: Vec<&'static str>,
+    /// Whether this session suspended Windows Explorer for an input lock.
+    explorer_suspended: std::sync::atomic::AtomicBool,
 }
 
 impl ProtoSession {
@@ -285,7 +291,37 @@ impl ProtoSession {
             runtime: ProtoInputRuntime::new(Some(dll_folder.clone())),
             dll_folder,
             handles: HashMap::new(),
+            extra: Default::default(),
+            reported_missing: Vec::new(),
+            explorer_suspended: std::sync::atomic::AtomicBool::new(false),
         })
+    }
+
+    /// Sets the translation/scaling options applied to every instance set up afterwards.
+    pub fn set_extra_config(&mut self, extra: nucleus_hook::proto_extras::ProtoInputExtraConfig) {
+        self.extra = extra;
+    }
+
+    /// Names of requested features the installed ProtoInput build does not provide.
+    pub fn missing_features(&self) -> &[&'static str] {
+        &self.reported_missing
+    }
+
+    /// Applies the optional features to a freshly configured instance.
+    fn apply_extras(&mut self, handle: u32, bounds: (i32, i32)) {
+        let Ok(loader) = self.host_loader() else {
+            return;
+        };
+        let extras = nucleus_hook::proto_extras::ProtoInputExtras::resolve(loader.dll_path());
+        for name in extras.apply(handle, &self.extra, bounds) {
+            if !self.reported_missing.contains(&name) {
+                tracing::warn!(
+                    "The handler uses Game.ProtoInput.{name}, which the installed ProtoInput \
+                     build does not support; install a newer ProtoInput release to enable it"
+                );
+                self.reported_missing.push(name);
+            }
+        }
     }
 
     pub fn dll_folder(&self) -> &Path {
@@ -314,6 +350,10 @@ impl ProtoSession {
         let player = make_player(handle);
         self.runtime
             .setup_instance(handle, player_index + 1, cfg, &player)?;
+        self.apply_extras(
+            handle,
+            (player.monitor_bounds_width, player.monitor_bounds_height),
+        );
         self.runtime.wake_up_process(handle)?;
         self.handles.insert(player_index, handle);
         Ok(pid)
@@ -332,6 +372,10 @@ impl ProtoSession {
         let player = make_player(handle);
         self.runtime
             .setup_instance(handle, player_index + 1, cfg, &player)?;
+        self.apply_extras(
+            handle,
+            (player.monitor_bounds_width, player.monitor_bounds_height),
+        );
         self.handles.insert(player_index, handle);
         Ok(())
     }
@@ -348,7 +392,12 @@ impl ProtoSession {
 
     /// Applies the input-lock state: locking hands the physical keyboards and mice to the
     /// instances (and keeps them away from the desktop); unlocking gives them back.
-    pub fn set_input_lock(&self, locked: bool) {
+    ///
+    /// With `suspend_explorer` (`Game.LockInputSuspendsExplorer`) the Windows shell is
+    /// suspended for the duration of the lock so shell hotkeys cannot steal focus; it is
+    /// always resumed on unlock and when the session ends.
+    pub fn set_input_lock(&self, locked: bool, suspend_explorer: bool) {
+        use std::sync::atomic::Ordering;
         let bitness = if cfg!(target_pointer_width = "64") {
             ProcessBitness::X64
         } else {
@@ -357,6 +406,12 @@ impl ProtoSession {
         match self.runtime.util_for_bitness(bitness) {
             Ok(util) => {
                 util.lock_input(locked);
+                if locked && suspend_explorer {
+                    util.suspend_explorer();
+                    self.explorer_suspended.store(true, Ordering::SeqCst);
+                } else if !locked && self.explorer_suspended.swap(false, Ordering::SeqCst) {
+                    util.restart_explorer();
+                }
             }
             Err(e) => tracing::warn!("ProtoInput input lock unavailable: {e}"),
         }
@@ -399,6 +454,13 @@ impl ProtoSession {
 
 impl Drop for ProtoSession {
     fn drop(&mut self) {
+        // The shell must never stay suspended once the session is gone.
+        if self
+            .explorer_suspended
+            .load(std::sync::atomic::Ordering::SeqCst)
+        {
+            self.set_input_lock(false, false);
+        }
         self.runtime.clear_tracked_handles();
     }
 }

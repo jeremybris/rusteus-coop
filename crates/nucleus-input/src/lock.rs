@@ -7,6 +7,17 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// to the game instances without holding a reference to the UI's `InputLock`.
 static GLOBAL_LOCKED: AtomicBool = AtomicBool::new(false);
 
+/// Pending lock change requested outside the UI (0 = none, 1 = lock, 2 = unlock).
+static EXTERNAL_REQUEST: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+/// Locks or unlocks input on behalf of the running session (for example a handler's
+/// `LockInputAtStart`). The next `InputLock` query adopts the requested state, so the
+/// lock key keeps toggling from what the user actually sees.
+pub fn request_input_lock(locked: bool) {
+    EXTERNAL_REQUEST.store(if locked { 1 } else { 2 }, Ordering::SeqCst);
+    GLOBAL_LOCKED.store(locked, Ordering::SeqCst);
+}
+
 /// Whether input is currently locked to the game instances.
 pub fn global_input_locked() -> bool {
     GLOBAL_LOCKED.load(Ordering::SeqCst)
@@ -35,7 +46,17 @@ impl InputLock {
 
     /// Returns `true` if input is currently locked to game instances.
     pub fn is_locked(&self) -> bool {
+        self.adopt_external_request();
         self.is_locked.load(Ordering::SeqCst)
+    }
+
+    /// Takes over a lock state requested through [`request_input_lock`].
+    fn adopt_external_request(&self) {
+        match EXTERNAL_REQUEST.swap(0, Ordering::SeqCst) {
+            1 => self.is_locked.store(true, Ordering::SeqCst),
+            2 => self.is_locked.store(false, Ordering::SeqCst),
+            _ => {}
+        }
     }
 
     /// Sets the input lock state directly.
@@ -46,6 +67,7 @@ impl InputLock {
 
     /// Toggles the lock state and returns the new state.
     pub fn toggle(&self) -> bool {
+        self.adopt_external_request();
         let prev = self.is_locked.fetch_xor(true, Ordering::SeqCst);
         GLOBAL_LOCKED.store(!prev, Ordering::SeqCst);
         !prev
@@ -137,5 +159,17 @@ mod tests {
         assert!(!state);
         assert!(!lock.is_locked());
         assert_eq!(osd.current_message(), Some("Inputs Unlocked".to_string()));
+    }
+
+    #[test]
+    fn test_external_lock_request_is_adopted_by_the_ui_lock() {
+        // The only test that uses the external request, so it cannot race with others.
+        let lock = InputLock::new();
+        request_input_lock(true);
+        assert!(global_input_locked());
+        assert!(lock.is_locked(), "the UI lock adopts the session's request");
+        // The lock key now releases instead of needing a second press.
+        assert!(!lock.toggle());
+        assert!(!global_input_locked());
     }
 }
