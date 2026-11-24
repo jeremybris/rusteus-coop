@@ -340,6 +340,30 @@ Handlers can also adjust ProtoInput at runtime from `Game.ProtoInput.OnInputLock
 
 The .NET-style helpers handlers commonly call are available: `System.Threading.Thread.Sleep`, `System.Environment.UserName` / `GetEnvironmentVariable`, `System.IO.Path` (`Combine`, `GetDirectoryName`, `GetFileName`, `GetExtension`, `GetFileNameWithoutExtension`), `System.IO.File` (`Exists`, `Copy`, `Delete`, `Move`, `ReadAllText`, `ReadAllLines`, `WriteAllText`, `WriteAllLines`, `AppendAllText`) and `System.IO.Directory` (`GetFiles`, `GetDirectories`, `GetParent`).
 
+#### Translation, scaling and other newer ProtoInput options
+
+`TranslateXinputtoMKB` (with the `TranslateX*` bindings and switches), `TranslateMKBtoXinput`, `ReRegisterInput`, `PointerInMouse`, `MessageSubWindows`, `GetCursorInfoHook`, `SetWindowsHookHook` and `ScaleFromX` / `ScaleFromY` are read and applied. They rely on functions only newer ProtoInput builds export; with an older build the launcher logs which option is unsupported and continues.
+
+#### Settings of the original hook DLL
+
+Handlers that predate ProtoInput configure input isolation with `Game.SetWindowHook`, `Game.SetWindowHookStart`, `Game.HookInit`, `Game.HookFilterRawInput`, `Game.HookFilterMouseMessages`, `Game.HookGetCursorPos` (and the other `Hook*` switches), `Game.SendNormalMouseInput`, `Game.SendNormalKeyboardInput`, `Game.SendScrollWheel`, `Game.DrawFakeMouseCursor`, `Game.BlockRawInput`, `Game.InjectHookXinput` and `Game.PreventWindowDeactivation`. The original hook DLL is not part of this project. When a handler uses these and does not set any `Game.ProtoInput.Inject*` option itself, the launcher derives the equivalent ProtoInput configuration (startup injection when `HookInit`, `SetWindowHookStart` or `BlockRawInput` is set, runtime injection otherwise). This is an equivalence, not the original implementation, so behaviour can differ in details. If ProtoInput is not installed such a handler still starts, without the hooks, and says so on screen.
+
+#### Input lock
+
+`Game.LockInputAtStart` locks input to the instances as soon as setup finishes (when ProtoInput is active). `Game.LockInputSuspendsExplorer` suspends the Windows shell while locked; it is resumed on unlock and whenever the session ends. `Game.KeyboardPlayerSkipFakeFocus` is honoured.
+
+#### Other launch settings
+
+| Setting | Effect |
+|---|---|
+| `LaunchAsDifferentUsers` | Each instance runs as its own local Windows account `nucleusplayerN`. The accounts are created on first use, which requires running the launcher as administrator once. |
+| `CustomUserGeneralPrompts`, `CustomUserPlayerPrompts`, `CustomUserInstancePrompts` | The user is asked for each value before `Game.Play`; answers are available as `Context.CustomUserGeneralValues` etc. `SaveCustomUser*Values` reuses stored answers, `SaveAndEditCustomUser*Values` offers them as defaults. |
+| `NeedsSteamEmulation`, `SSEAdditionalLines` | Deploys SmartSteamEmu and starts the instance through its loader (when Goldberg is not used). |
+| `GamePlayBeforeGameSetup` | Runs `Game.Play` before emulators and input tools are deployed. |
+| `ForceUserProfileConfigCopy`, `ForceUserProfileSaveCopy`, `ForceDocumentsConfigCopy`, `ForceDocumentsSaveCopy`, `*NoCopy`, `ForceEnvironmentUse` | Control whether profile folders are copied into the per-player environment and whether they are refreshed on every launch. |
+
+Not implemented: `CustomHotkeys` / `OnCustomHotKey_N`, `ChangeIPPerInstance`, `UseDI8CoopLvlUnlocker`, `UseGoldbergNoOGSteamDlls`, `TransferNucleusUserAccountProfiles`, `ToggleUnfocusOnInputsLock`. These are parsed and ignored.
+
 When a handler requests injection, the launcher starts the game through ProtoInput (`InjectStartup`) or injects the running process, then selects the keyboard, mouse and controllers assigned to that player. The ProtoInput DLLs are not part of this repository: copy the files from a [ProtoInput release](https://github.com/SplitScreen-Me/ProtoInput) next to `nucleus-coop.exe` (or into `utils\ProtoInput`). Launching a handler that needs them without them stops with a message naming the missing files.
 
 ---
