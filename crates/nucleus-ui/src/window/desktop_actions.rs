@@ -46,7 +46,6 @@ impl MainWindow {
         .detach();
     }
 
-
     /// Opens the game handler script file in a text editor or Explorer asynchronously.
     pub fn open_game_handler_file(
         &mut self,
@@ -73,7 +72,11 @@ impl MainWindow {
             std::thread::spawn(move || {
                 #[cfg(windows)]
                 {
-                    if std::process::Command::new("notepad.exe").arg(&p_str).spawn().is_err() {
+                    if std::process::Command::new("notepad.exe")
+                        .arg(&p_str)
+                        .spawn()
+                        .is_err()
+                    {
                         let _ = std::process::Command::new("explorer").arg(&p_str).spawn();
                     }
                 }
@@ -84,7 +87,11 @@ impl MainWindow {
             });
             self.show_osd(&format!("Opened handler for '{}'", game_name), 2000, cx);
         } else {
-            self.show_osd(&format!("Handler script not found for '{}'", game_name), 3000, cx);
+            self.show_osd(
+                &format!("Handler script not found for '{}'", game_name),
+                3000,
+                cx,
+            );
         }
         cx.notify();
     }
@@ -98,7 +105,11 @@ impl MainWindow {
     ) {
         if let Some(p) = exe_path {
             let p_path = std::path::PathBuf::from(p);
-            let dir = p_path.parent().unwrap_or(&p_path).to_string_lossy().to_string();
+            let dir = p_path
+                .parent()
+                .unwrap_or(&p_path)
+                .to_string_lossy()
+                .to_string();
             std::thread::spawn(move || {
                 #[cfg(windows)]
                 {
@@ -109,9 +120,17 @@ impl MainWindow {
                     let _ = std::process::Command::new("xdg-open").arg(&dir).spawn();
                 }
             });
-            self.show_osd(&format!("Opened executable folder for '{}'", game_name), 2000, cx);
+            self.show_osd(
+                &format!("Opened executable folder for '{}'", game_name),
+                2000,
+                cx,
+            );
         } else {
-            self.show_osd(&format!("Executable path not configured for '{}'", game_name), 3000, cx);
+            self.show_osd(
+                &format!("Executable path not configured for '{}'", game_name),
+                3000,
+                cx,
+            );
         }
         cx.notify();
     }
@@ -120,21 +139,30 @@ impl MainWindow {
     pub fn open_game_userprofile_path(&mut self, game_name: &str, cx: &mut Context<Self>) {
         let name_clean = game_name.to_string();
         std::thread::spawn(move || {
-            let user_profile = std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\Users\\Default".to_string());
+            let user_profile =
+                std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\Users\\Default".to_string());
             let target_dir = std::path::Path::new(&user_profile)
                 .join("NucleusCoop")
                 .join(&name_clean);
             let _ = std::fs::create_dir_all(&target_dir);
             #[cfg(windows)]
             {
-                let _ = std::process::Command::new("explorer").arg(&target_dir).spawn();
+                let _ = std::process::Command::new("explorer")
+                    .arg(&target_dir)
+                    .spawn();
             }
             #[cfg(not(windows))]
             {
-                let _ = std::process::Command::new("xdg-open").arg(&target_dir).spawn();
+                let _ = std::process::Command::new("xdg-open")
+                    .arg(&target_dir)
+                    .spawn();
             }
         });
-        self.show_osd(&format!("Opened UserProfile save path for '{}'", game_name), 2000, cx);
+        self.show_osd(
+            &format!("Opened UserProfile save path for '{}'", game_name),
+            2000,
+            cx,
+        );
         cx.notify();
     }
 
@@ -151,23 +179,44 @@ impl MainWindow {
             let _ = std::fs::create_dir_all(&target_dir);
             #[cfg(windows)]
             {
-                let _ = std::process::Command::new("explorer").arg(&target_dir).spawn();
+                let _ = std::process::Command::new("explorer")
+                    .arg(&target_dir)
+                    .spawn();
             }
             #[cfg(not(windows))]
             {
-                let _ = std::process::Command::new("xdg-open").arg(&target_dir).spawn();
+                let _ = std::process::Command::new("xdg-open")
+                    .arg(&target_dir)
+                    .spawn();
             }
         });
-        self.show_osd(&format!("Opened game assets folder for '{}'", game_name), 2000, cx);
+        self.show_osd(
+            &format!("Opened game assets folder for '{}'", game_name),
+            2000,
+            cx,
+        );
         cx.notify();
     }
 
     /// Sets custom gamepad assignment preference ("by_index" or "on_button_press").
     pub fn set_gamepad_mode_preference(&mut self, guid: &str, mode: &str, cx: &mut Context<Self>) {
         let key = format!("{}:gamepad_mode", guid);
-        self.app_settings.custom_preferences.insert(key, mode.to_string());
+        self.app_settings
+            .custom_preferences
+            .insert(key, mode.to_string());
         let _ = self.app_settings.save();
-        self.show_osd(&format!("Gamepad mode set to '{}'", if mode == "by_index" { "By index" } else { "On button press" }), 1500, cx);
+        self.show_osd(
+            &format!(
+                "Gamepad mode set to '{}'",
+                if mode == "by_index" {
+                    "By index"
+                } else {
+                    "On button press"
+                }
+            ),
+            1500,
+            cx,
+        );
         cx.notify();
     }
 
@@ -175,19 +224,43 @@ impl MainWindow {
     pub fn cycle_steam_language_preference(&mut self, guid: &str, cx: &mut Context<Self>) {
         let key = format!("{}:steam_language", guid);
         let langs = [
-            "English", "Spanish", "French", "German", "Italian", "Japanese", "Portuguese", "Russian", "Simplified Chinese"
+            "English",
+            "Spanish",
+            "French",
+            "German",
+            "Italian",
+            "Japanese",
+            "Portuguese",
+            "Russian",
+            "Simplified Chinese",
         ];
-        let current = self.app_settings.custom_preferences.get(&key).map(|s| s.as_str()).unwrap_or("English");
-        let next_idx = langs.iter().position(|&l| l.eq_ignore_ascii_case(current)).map(|i| (i + 1) % langs.len()).unwrap_or(0);
+        let current = self
+            .app_settings
+            .custom_preferences
+            .get(&key)
+            .map(|s| s.as_str())
+            .unwrap_or("English");
+        let next_idx = langs
+            .iter()
+            .position(|&l| l.eq_ignore_ascii_case(current))
+            .map(|i| (i + 1) % langs.len())
+            .unwrap_or(0);
         let next_lang = langs[next_idx];
-        self.app_settings.custom_preferences.insert(key, next_lang.to_string());
+        self.app_settings
+            .custom_preferences
+            .insert(key, next_lang.to_string());
         let _ = self.app_settings.save();
         self.show_osd(&format!("Steam language: {}", next_lang), 1500, cx);
         cx.notify();
     }
 
     /// Asynchronously prompts the user for a game icon image file and updates the handler.
-    pub fn trigger_change_game_icon_async(&mut self, guid: &str, game_name: &str, cx: &mut Context<Self>) {
+    pub fn trigger_change_game_icon_async(
+        &mut self,
+        guid: &str,
+        game_name: &str,
+        cx: &mut Context<Self>,
+    ) {
         let g_guid = guid.to_string();
         let g_name = game_name.to_string();
         self.show_osd("Select game icon file...", 2000, cx);
@@ -195,18 +268,25 @@ impl MainWindow {
             let path_opt = crate::dialogs::pick_file_async(
                 "Select Game Icon (*.png; *.jpg; *.ico)",
                 "*.png;*.jpg;*.jpeg;*.ico;*.webp",
-            ).await;
+            )
+            .await;
             if let Some(path) = path_opt {
                 let p_str = path.to_string_lossy().to_string();
                 this.update(&mut *cx, |this, cx| {
-                    if let Some(h) = this.handlers.iter_mut().find(|h| h.guid == g_guid || h.game_name == g_name) {
+                    if let Some(h) = this
+                        .handlers
+                        .iter_mut()
+                        .find(|h| h.guid == g_guid || h.game_name == g_name)
+                    {
                         h.cover_image_url = Some(p_str.clone());
                     }
                     this.show_osd("Game icon updated!", 2000, cx);
                     cx.notify();
-                }).ok();
+                })
+                .ok();
             }
-        }).detach();
+        })
+        .detach();
     }
 
     /// Asynchronously prompts the user for a game executable to add to the library.
@@ -216,7 +296,8 @@ impl MainWindow {
             let path_opt = crate::dialogs::pick_file_async(
                 "Select Game Executable (*.exe)",
                 "Executables (*.exe)|*.exe|All Files (*.*)|*.*",
-            ).await;
+            )
+            .await;
             if let Some(path) = path_opt {
                 let p_str = path.to_string_lossy().to_string();
                 this.update(&mut *cx, |this, cx| {
@@ -225,13 +306,20 @@ impl MainWindow {
                     }
                     this.show_osd("Game executable added!", 2000, cx);
                     cx.notify();
-                }).ok();
+                })
+                .ok();
             }
-        }).detach();
+        })
+        .detach();
     }
 
     /// Shows confirmation dialog to remove a game from the local library.
-    pub fn prompt_remove_game_confirmation(&mut self, guid: &str, game_name: &str, cx: &mut Context<Self>) {
+    pub fn prompt_remove_game_confirmation(
+        &mut self,
+        guid: &str,
+        game_name: &str,
+        cx: &mut Context<Self>,
+    ) {
         let target_guid = guid.to_string();
         let target_name = game_name.to_string();
         self.confirm_dialog = Some(crate::models::ConfirmDialogState {
@@ -261,13 +349,24 @@ impl MainWindow {
                 self.enter_couch_setup(game, cx);
                 return;
             }
-            let guid = self.handlers.iter().find(|h| h.game_name == *game || h.guid == *game)
-                .map(|h| h.guid.clone()).unwrap_or_else(|| game.clone());
+            let guid = self
+                .handlers
+                .iter()
+                .find(|h| h.game_name == *game || h.guid == *game)
+                .map(|h| h.guid.clone())
+                .unwrap_or_else(|| game.clone());
             if let Some(ref cb) = self.callbacks.on_load_numbered_profile {
                 if let Some(prof) = cb(&guid, 0) {
                     self.player_count = prof.player_count;
                     self.selected_layout = prof.layout.clone();
-                    self.show_osd(&format!("Loaded profile: {} players, {}", prof.player_count, prof.layout), 2000, cx);
+                    self.show_osd(
+                        &format!(
+                            "Loaded profile: {} players, {}",
+                            prof.player_count, prof.layout
+                        ),
+                        2000,
+                        cx,
+                    );
                     self.enter_couch_setup(game, cx);
                     return;
                 }
@@ -296,9 +395,16 @@ impl MainWindow {
 
     /// Saves the active session setup as a numbered profile.
     pub fn save_current_session_profile(&mut self, cx: &mut Context<Self>) {
-        let game = self.selected_game.clone().unwrap_or_else(|| "Unknown".to_string());
-        let guid = self.handlers.iter().find(|h| h.game_name == game || h.guid == game)
-            .map(|h| h.guid.clone()).unwrap_or_else(|| game.clone());
+        let game = self
+            .selected_game
+            .clone()
+            .unwrap_or_else(|| "Unknown".to_string());
+        let guid = self
+            .handlers
+            .iter()
+            .find(|h| h.game_name == game || h.guid == game)
+            .map(|h| h.guid.clone())
+            .unwrap_or_else(|| game.clone());
         let profile_title = format!("{} ({}p)", game, self.player_count);
         let mut prof = nucleus_profile::game_profile::GameProfile::default();
         prof.id = format!("{}_profile_0", guid);
@@ -313,7 +419,11 @@ impl MainWindow {
 
         if let Some(ref cb) = self.callbacks.on_save_numbered_profile {
             cb(&guid, Some(0), &prof);
-            self.show_osd(&format!("Saved session profile: {}", profile_title), 2500, cx);
+            self.show_osd(
+                &format!("Saved session profile: {}", profile_title),
+                2500,
+                cx,
+            );
         } else {
             self.show_osd("Profile saved to local cache.", 2000, cx);
         }
@@ -345,7 +455,11 @@ impl MainWindow {
                 profile_number: idx,
                 profile_title: format!("{} setup", h.game_name),
                 player_count: if h.max_players >= 2 { 2 } else { 1 },
-                layout: if h.max_players >= 2 { "1x2 Stacked".to_string() } else { "1x1 Single".to_string() },
+                layout: if h.max_players >= 2 {
+                    "1x2 Stacked".to_string()
+                } else {
+                    "1x1 Single".to_string()
+                },
                 cover_url: h.cover_image_url.clone(),
             });
         }
@@ -354,7 +468,12 @@ impl MainWindow {
 
     /// Loads a saved profile by index and transitions to Couch Splitscreen Setup.
     pub fn load_saved_profile_by_number(&mut self, guid: &str, num: usize, cx: &mut Context<Self>) {
-        if let Some(h) = self.handlers.iter().find(|h| h.guid == guid || h.game_name == guid).cloned() {
+        if let Some(h) = self
+            .handlers
+            .iter()
+            .find(|h| h.guid == guid || h.game_name == guid)
+            .cloned()
+        {
             let g_name = h.game_name.clone();
             self.selected_game = Some(g_name.clone());
             if let Some(ref cb) = self.callbacks.on_load_numbered_profile {
@@ -368,7 +487,11 @@ impl MainWindow {
                 }
             }
             self.player_count = if h.max_players >= 2 { 2 } else { 1 };
-            self.selected_layout = if h.max_players >= 2 { "1x2 Stacked".to_string() } else { "1x1 Single".to_string() };
+            self.selected_layout = if h.max_players >= 2 {
+                "1x2 Stacked".to_string()
+            } else {
+                "1x1 Single".to_string()
+            };
             self.show_osd(&format!("Loaded setup for '{}'", g_name), 2000, cx);
             self.enter_couch_setup(&g_name, cx);
         }
@@ -395,7 +518,11 @@ impl MainWindow {
 
     /// Re-enumerates connected gamepad hardware.
     pub fn refresh_detected_gamepads(&mut self, cx: &mut Context<Self>) {
-        self.show_osd(&format!("Controllers: {} connected", self.detected_devices), 1500, cx);
+        self.show_osd(
+            &format!("Controllers: {} connected", self.detected_devices),
+            1500,
+            cx,
+        );
         cx.notify();
     }
 
@@ -403,10 +530,18 @@ impl MainWindow {
     pub fn cycle_interface_scale_preference(&mut self, cx: &mut Context<Self>) {
         let scales = ["Large · TV", "Normal", "Large"];
         let cur = &self.app_settings.interface_scale;
-        let next_idx = scales.iter().position(|&s| s == cur).map(|i| (i + 1) % scales.len()).unwrap_or(0);
+        let next_idx = scales
+            .iter()
+            .position(|&s| s == cur)
+            .map(|i| (i + 1) % scales.len())
+            .unwrap_or(0);
         self.app_settings.interface_scale = scales[next_idx].to_string();
         let _ = self.app_settings.save();
-        self.show_osd(&format!("Interface scale: {}", self.app_settings.interface_scale), 1500, cx);
+        self.show_osd(
+            &format!("Interface scale: {}", self.app_settings.interface_scale),
+            1500,
+            cx,
+        );
         cx.notify();
     }
 
@@ -417,20 +552,45 @@ impl MainWindow {
         } else {
             1
         };
-        self.app_settings.preferred_display = (self.app_settings.preferred_display + 1) % total_displays;
+        self.app_settings.preferred_display =
+            (self.app_settings.preferred_display + 1) % total_displays;
         let _ = self.app_settings.save();
-        self.show_osd(&format!("Preferred display: Display {}", self.app_settings.preferred_display + 1), 1500, cx);
+        self.show_osd(
+            &format!(
+                "Preferred display: Display {}",
+                self.app_settings.preferred_display + 1
+            ),
+            1500,
+            cx,
+        );
         cx.notify();
     }
 
     /// Cycles UI language preference.
     pub fn cycle_language_preference(&mut self, cx: &mut Context<Self>) {
-        let languages = ["English", "Spanish", "French", "German", "Portuguese", "Russian", "Japanese", "Simplified Chinese"];
+        let languages = [
+            "English",
+            "Spanish",
+            "French",
+            "German",
+            "Portuguese",
+            "Russian",
+            "Japanese",
+            "Simplified Chinese",
+        ];
         let cur = &self.app_settings.language;
-        let next_idx = languages.iter().position(|&l| l.eq_ignore_ascii_case(cur)).map(|i| (i + 1) % languages.len()).unwrap_or(0);
+        let next_idx = languages
+            .iter()
+            .position(|&l| l.eq_ignore_ascii_case(cur))
+            .map(|i| (i + 1) % languages.len())
+            .unwrap_or(0);
         self.app_settings.language = languages[next_idx].to_string();
         let _ = self.app_settings.save();
-        self.show_osd(&format!("Language: {}", self.app_settings.language), 1500, cx);
+        self.show_osd(
+            &format!("Language: {}", self.app_settings.language),
+            1500,
+            cx,
+        );
         cx.notify();
     }
 
@@ -442,12 +602,16 @@ impl MainWindow {
 
         // Automatically clear identification pulse after 1.5s using GPUI native timer (Safety Rule 1)
         cx.spawn(async move |this, cx| {
-            cx.background_executor().timer(std::time::Duration::from_millis(1500)).await;
+            cx.background_executor()
+                .timer(std::time::Duration::from_millis(1500))
+                .await;
             this.update(&mut *cx, |this, cx| {
                 this.identifying_controller_guid = None;
                 cx.notify();
-            }).ok();
-        }).detach();
+            })
+            .ok();
+        })
+        .detach();
     }
 
     /// Asynchronously scans all storage drives for supported games.
@@ -476,15 +640,23 @@ impl MainWindow {
                 this.is_scanning_games = false;
                 let mut added_count = 0;
                 for item in discovered {
-                    if !this.handlers.iter().any(|h| h.guid == item.guid || h.game_name.eq_ignore_ascii_case(&item.game_name)) {
+                    if !this.handlers.iter().any(|h| {
+                        h.guid == item.guid || h.game_name.eq_ignore_ascii_case(&item.game_name)
+                    }) {
                         this.handlers.push(item);
                         added_count += 1;
                     }
                 }
-                this.show_osd(&format!("Scan complete! Discovered {} new game(s).", added_count), 3000, cx);
+                this.show_osd(
+                    &format!("Scan complete! Discovered {} new game(s).", added_count),
+                    3000,
+                    cx,
+                );
                 cx.notify();
-            }).ok();
-        }).detach();
+            })
+            .ok();
+        })
+        .detach();
     }
 
     /// Checks whether a specific handler GUID or game title is installed locally.
@@ -709,7 +881,6 @@ impl MainWindow {
         }
     }
 
-
     pub fn trigger_hub_search_async(&mut self, cx: &mut Context<Self>) {
         if let Some(cb) = self.callbacks.on_search_hub.clone() {
             self.hub_loading = true;
@@ -778,10 +949,12 @@ impl MainWindow {
                     self.debugger_view_state.selected_game_title = Some(title.clone());
                     let filename = format!("{}.js", title.to_lowercase().replace(' ', "_"));
                     self.debugger_view_state.load_script(&filename, &content);
-                    self.debugger_view_state.status_message = Some(format!("Loaded script for {}", title));
+                    self.debugger_view_state.status_message =
+                        Some(format!("Loaded script for {}", title));
                 }
                 Err(err) => {
-                    self.debugger_view_state.status_message = Some(format!("Error loading handler: {}", err));
+                    self.debugger_view_state.status_message =
+                        Some(format!("Error loading handler: {}", err));
                 }
             }
         }
@@ -796,15 +969,16 @@ impl MainWindow {
                 match saver(&guid, &content) {
                     Ok(()) => {
                         self.debugger_view_state.is_dirty = false;
-                        self.debugger_view_state.status_message = Some("Handler script saved successfully!".to_string());
+                        self.debugger_view_state.status_message =
+                            Some("Handler script saved successfully!".to_string());
                     }
                     Err(err) => {
-                        self.debugger_view_state.status_message = Some(format!("Failed to save script: {}", err));
+                        self.debugger_view_state.status_message =
+                            Some(format!("Failed to save script: {}", err));
                     }
                 }
             }
         }
         cx.notify();
     }
-
 }

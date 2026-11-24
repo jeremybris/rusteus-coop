@@ -25,7 +25,10 @@ fn test_session_tick_applies_frozen_memory_values() {
     session.tick().expect("session.tick failed");
 
     // Value must be restored to 999
-    assert_eq!(target_val, 999, "session.tick must enforce frozen memory values");
+    assert_eq!(
+        target_val, 999,
+        "session.tick must enforce frozen memory values"
+    );
 
     // Clean up
     assert!(MemoryEngine::unfreeze_value(slot_id));

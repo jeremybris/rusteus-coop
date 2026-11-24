@@ -1267,66 +1267,91 @@ pub fn render_card_general_isolation(win: &MainWindow, cx: &mut Context<MainWind
                                 .px_3()
                                 .py_1p5()
                                 .rounded_md()
-                                .bg(if is_editing { theme::bg_panel() } else { theme::bg_subtle() })
+                                .bg(if is_editing {
+                                    theme::bg_panel()
+                                } else {
+                                    theme::bg_subtle()
+                                })
                                 .border_1()
-                                .border_color(if is_editing { theme::accent() } else { theme::border_color() })
+                                .border_color(if is_editing {
+                                    theme::accent()
+                                } else {
+                                    theme::border_color()
+                                })
                                 .when(is_editing, |box_el| {
-                                    box_el.child(
-                                        div()
-                                            .id("input-field-custom-pwd")
-                                            .key_context("settings_custom_password")
-                                            .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, _, cx| {
-                                                if event.keystroke.modifiers.control || event.keystroke.modifiers.alt || event.keystroke.modifiers.platform {
-                                                    return;
-                                                }
-                                                let key = event.keystroke.key.as_str();
-                                                match key {
-                                                    "backspace" => {
-                                                        this.app_settings.nucleus_account_password.pop();
-                                                        let _ = this.app_settings.save();
-                                                        cx.notify();
-                                                    }
-                                                    "escape" | "enter" => {
-                                                        this.settings_view.editing_password = false;
-                                                        let _ = this.app_settings.save();
-                                                        cx.notify();
-                                                    }
-                                                    _ => {
-                                                        if let Some(ref s) = event.keystroke.key_char {
-                                                            this.app_settings.nucleus_account_password.push_str(s);
-                                                            let _ = this.app_settings.save();
-                                                            cx.notify();
-                                                        } else if key.chars().count() == 1 {
-                                                            this.app_settings.nucleus_account_password.push_str(key);
-                                                            let _ = this.app_settings.save();
-                                                            cx.notify();
+                                    box_el
+                                        .child(
+                                            div()
+                                                .id("input-field-custom-pwd")
+                                                .key_context("settings_custom_password")
+                                                .on_key_down(cx.listener(
+                                                    |this, event: &gpui::KeyDownEvent, _, cx| {
+                                                        if event.keystroke.modifiers.control
+                                                            || event.keystroke.modifiers.alt
+                                                            || event.keystroke.modifiers.platform
+                                                        {
+                                                            return;
                                                         }
-                                                    }
-                                                }
-                                            }))
-                                            .text_xs()
-                                            .font_weight(FontWeight::BOLD)
-                                            .text_color(theme::text_primary())
-                                            .child(format!("{}|", pass_val))
-                                    )
-                                    .child(
-                                        div()
-                                            .id("btn-done-custom-password")
-                                            .cursor_pointer()
-                                            .px_2()
-                                            .py_0p5()
-                                            .rounded_sm()
-                                            .bg(theme::accent())
-                                            .text_xs()
-                                            .text_color(theme::text_on_accent())
-                                            .font_weight(FontWeight::BOLD)
-                                            .on_click(cx.listener(|this, _, _, cx| {
-                                                this.settings_view.editing_password = false;
-                                                let _ = this.app_settings.save();
-                                                cx.notify();
-                                            }))
-                                            .child("Done")
-                                    )
+                                                        let key = event.keystroke.key.as_str();
+                                                        match key {
+                                                            "backspace" => {
+                                                                this.app_settings
+                                                                    .nucleus_account_password
+                                                                    .pop();
+                                                                let _ = this.app_settings.save();
+                                                                cx.notify();
+                                                            }
+                                                            "escape" | "enter" => {
+                                                                this.settings_view
+                                                                    .editing_password = false;
+                                                                let _ = this.app_settings.save();
+                                                                cx.notify();
+                                                            }
+                                                            _ => {
+                                                                if let Some(ref s) =
+                                                                    event.keystroke.key_char
+                                                                {
+                                                                    this.app_settings
+                                                                        .nucleus_account_password
+                                                                        .push_str(s);
+                                                                    let _ =
+                                                                        this.app_settings.save();
+                                                                    cx.notify();
+                                                                } else if key.chars().count() == 1 {
+                                                                    this.app_settings
+                                                                        .nucleus_account_password
+                                                                        .push_str(key);
+                                                                    let _ =
+                                                                        this.app_settings.save();
+                                                                    cx.notify();
+                                                                }
+                                                            }
+                                                        }
+                                                    },
+                                                ))
+                                                .text_xs()
+                                                .font_weight(FontWeight::BOLD)
+                                                .text_color(theme::text_primary())
+                                                .child(format!("{}|", pass_val)),
+                                        )
+                                        .child(
+                                            div()
+                                                .id("btn-done-custom-password")
+                                                .cursor_pointer()
+                                                .px_2()
+                                                .py_0p5()
+                                                .rounded_sm()
+                                                .bg(theme::accent())
+                                                .text_xs()
+                                                .text_color(theme::text_on_accent())
+                                                .font_weight(FontWeight::BOLD)
+                                                .on_click(cx.listener(|this, _, _, cx| {
+                                                    this.settings_view.editing_password = false;
+                                                    let _ = this.app_settings.save();
+                                                    cx.notify();
+                                                }))
+                                                .child("Done"),
+                                        )
                                 })
                                 .when(!is_editing, |box_el| {
                                     box_el
@@ -1339,7 +1364,11 @@ pub fn render_card_general_isolation(win: &MainWindow, cx: &mut Context<MainWind
                                                 .text_xs()
                                                 .font_weight(FontWeight::BOLD)
                                                 .text_color(theme::text_primary())
-                                                .child(if pass_val.is_empty() { "Click to type password...".to_string() } else { pass_val })
+                                                .child(if pass_val.is_empty() {
+                                                    "Click to type password...".to_string()
+                                                } else {
+                                                    pass_val
+                                                }),
                                         )
                                         .child(
                                             div()
@@ -1349,7 +1378,7 @@ pub fn render_card_general_isolation(win: &MainWindow, cx: &mut Context<MainWind
                                                 .text_xs()
                                                 .text_color(theme::accent())
                                                 .child(Icon::new(IconName::Pencil).size(px(11.0)))
-                                                .child("Custom")
+                                                .child("Custom"),
                                         )
                                 })
                         })
@@ -3479,22 +3508,28 @@ pub fn render_card_appearance_handlers_dir(
                         .icon(IconName::FolderOpen)
                         .size(CouchButtonSize::Sm)
                         .on_click(cx.listener(|this, _, _, cx| {
-                            this.status_message = "Browsing for game handlers directory...".to_string();
+                            this.status_message =
+                                "Browsing for game handlers directory...".to_string();
                             cx.notify();
                             cx.spawn(async move |this, cx| {
-                                let folder_opt =
-                                    crate::dialogs::pick_folder_async("Select Game Handlers Directory").await;
+                                let folder_opt = crate::dialogs::pick_folder_async(
+                                    "Select Game Handlers Directory",
+                                )
+                                .await;
                                 if let Some(folder) = folder_opt {
                                     let folder_str = folder.to_string_lossy().to_string();
                                     let _ = this.update(&mut *cx, |this, cx| {
                                         this.handlers_dir = folder_str.clone();
                                         this.app_settings.handlers_directory = folder_str.clone();
-                                        if let Some(ref cb) = this.callbacks.on_handlers_dir_changed {
+                                        if let Some(ref cb) = this.callbacks.on_handlers_dir_changed
+                                        {
                                             let updated = cb(&folder_str);
                                             if !updated.is_empty() {
                                                 this.handlers = updated.clone();
-                                                this.handler_names =
-                                                    updated.iter().map(|h| h.game_name.clone()).collect();
+                                                this.handler_names = updated
+                                                    .iter()
+                                                    .map(|h| h.game_name.clone())
+                                                    .collect();
                                             }
                                         }
                                         this.status_message =
@@ -3503,7 +3538,8 @@ pub fn render_card_appearance_handlers_dir(
                                     });
                                 } else {
                                     let _ = this.update(&mut *cx, |this, cx| {
-                                        this.status_message = "Handlers directory selection cancelled.".to_string();
+                                        this.status_message =
+                                            "Handlers directory selection cancelled.".to_string();
                                         cx.notify();
                                     });
                                 }
@@ -3734,10 +3770,7 @@ pub fn render_card_launch_timer_config(
 }
 
 /// Renders Card: PeerParty P2P Online Multiplayer Settings.
-pub fn render_card_peerparty_config(
-    win: &MainWindow,
-    cx: &mut Context<MainWindow>,
-) -> AnyElement {
+pub fn render_card_peerparty_config(win: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
     let settings = &win.app_settings;
 
     NefosCard::surface("card-peerparty-config")

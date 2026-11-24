@@ -357,5 +357,4 @@ impl MainWindow {
         self.show_osd(&chosen, 1200, cx);
         cx.notify();
     }
-
 }

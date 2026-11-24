@@ -13,10 +13,6 @@ pub mod manager;
 pub mod raw_devices;
 pub mod raw_input;
 
-pub use raw_devices::{
-    RawDevice, RawDeviceKind, cached_raw_devices, device_count, enumerate_raw_devices,
-    nth_device_handle, ordinal_in_assignment, proto_assignment_labels,
-};
 pub use combo::{ComboDetector, HoldComboConfig};
 pub use gamepad::{DeviceFingerprint, GamepadDevice, GamepadManager};
 pub use hotkeys::{
@@ -26,4 +22,8 @@ pub use hotkeys::{
 };
 pub use lock::{DEFAULT_LOCK_TOGGLE_KEY, InputLock, global_input_locked, request_input_lock};
 pub use manager::InputManager;
+pub use raw_devices::{
+    RawDevice, RawDeviceKind, cached_raw_devices, device_count, enumerate_raw_devices,
+    nth_device_handle, ordinal_in_assignment, proto_assignment_labels,
+};
 pub use raw_input::{RawInputData, RawInputHandler};

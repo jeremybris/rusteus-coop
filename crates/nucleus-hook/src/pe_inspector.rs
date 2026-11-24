@@ -87,12 +87,16 @@ impl PeInspector {
     /// Inspects a PE binary from an in-memory byte slice.
     pub fn inspect_bytes(data: &[u8]) -> NucleusResult<PeInfo> {
         if data.len() < 64 {
-            return Err(NucleusError::PeInspection("Buffer too small for DOS header".to_string()));
+            return Err(NucleusError::PeInspection(
+                "Buffer too small for DOS header".to_string(),
+            ));
         }
 
         // Verify DOS signature ("MZ" / 0x5A4D)
         if data[0] != b'M' || data[1] != b'Z' {
-            return Err(NucleusError::PeInspection("Invalid DOS signature (expected MZ)".to_string()));
+            return Err(NucleusError::PeInspection(
+                "Invalid DOS signature (expected MZ)".to_string(),
+            ));
         }
 
         // Read e_lfanew at offset 0x3C (4 bytes, little-endian)
@@ -103,13 +107,17 @@ impl PeInspector {
         ) as usize;
 
         if lfanew + 24 > data.len() {
-            return Err(NucleusError::PeInspection("Corrupt PE offset (exceeds file size)".to_string()));
+            return Err(NucleusError::PeInspection(
+                "Corrupt PE offset (exceeds file size)".to_string(),
+            ));
         }
 
         // Verify PE signature ("PE\0\0" / 0x00004550)
         let pe_sig = &data[lfanew..lfanew + 4];
         if pe_sig != b"PE\0\0" {
-            return Err(NucleusError::PeInspection("Invalid PE signature".to_string()));
+            return Err(NucleusError::PeInspection(
+                "Invalid PE signature".to_string(),
+            ));
         }
 
         let file_header_offset = lfanew + 4;
@@ -139,7 +147,9 @@ impl PeInspector {
 
         let opt_header_offset = file_header_offset + 20;
         if opt_header_offset + opt_header_size > data.len() {
-            return Err(NucleusError::PeInspection("Corrupt optional header size".to_string()));
+            return Err(NucleusError::PeInspection(
+                "Corrupt optional header size".to_string(),
+            ));
         }
 
         let opt_magic = u16::from_le_bytes(
@@ -155,7 +165,7 @@ impl PeInspector {
                 return Err(NucleusError::PeInspection(format!(
                     "Unsupported optional header magic: 0x{:04X}",
                     other
-                )))
+                )));
             }
         };
 
@@ -221,26 +231,14 @@ impl PeInspector {
             if sec_offset + 40 > data.len() {
                 break;
             }
-            let virtual_size = u32::from_le_bytes(
-                data[sec_offset + 8..sec_offset + 12]
-                    .try_into()
-                    .unwrap(),
-            );
-            let virtual_address = u32::from_le_bytes(
-                data[sec_offset + 12..sec_offset + 16]
-                    .try_into()
-                    .unwrap(),
-            );
-            let raw_data_size = u32::from_le_bytes(
-                data[sec_offset + 16..sec_offset + 20]
-                    .try_into()
-                    .unwrap(),
-            );
-            let raw_data_offset = u32::from_le_bytes(
-                data[sec_offset + 20..sec_offset + 24]
-                    .try_into()
-                    .unwrap(),
-            );
+            let virtual_size =
+                u32::from_le_bytes(data[sec_offset + 8..sec_offset + 12].try_into().unwrap());
+            let virtual_address =
+                u32::from_le_bytes(data[sec_offset + 12..sec_offset + 16].try_into().unwrap());
+            let raw_data_size =
+                u32::from_le_bytes(data[sec_offset + 16..sec_offset + 20].try_into().unwrap());
+            let raw_data_offset =
+                u32::from_le_bytes(data[sec_offset + 20..sec_offset + 24].try_into().unwrap());
             sections.push(PeSection {
                 virtual_address,
                 virtual_size,
@@ -263,31 +261,18 @@ impl PeInspector {
         if export_dir_rva != 0 && export_dir_size > 0 {
             if let Some(exp_off) = rva_to_offset(export_dir_rva) {
                 if exp_off + 40 <= data.len() {
-                    let num_functions = u32::from_le_bytes(
-                        data[exp_off + 20..exp_off + 24]
-                            .try_into()
-                            .unwrap(),
-                    ) as usize;
-                    let num_names = u32::from_le_bytes(
-                        data[exp_off + 24..exp_off + 28]
-                            .try_into()
-                            .unwrap(),
-                    ) as usize;
-                    let addr_functions_rva = u32::from_le_bytes(
-                        data[exp_off + 28..exp_off + 32]
-                            .try_into()
-                            .unwrap(),
-                    );
-                    let addr_names_rva = u32::from_le_bytes(
-                        data[exp_off + 32..exp_off + 36]
-                            .try_into()
-                            .unwrap(),
-                    );
-                    let addr_name_ordinals_rva = u32::from_le_bytes(
-                        data[exp_off + 36..exp_off + 40]
-                            .try_into()
-                            .unwrap(),
-                    );
+                    let num_functions =
+                        u32::from_le_bytes(data[exp_off + 20..exp_off + 24].try_into().unwrap())
+                            as usize;
+                    let num_names =
+                        u32::from_le_bytes(data[exp_off + 24..exp_off + 28].try_into().unwrap())
+                            as usize;
+                    let addr_functions_rva =
+                        u32::from_le_bytes(data[exp_off + 28..exp_off + 32].try_into().unwrap());
+                    let addr_names_rva =
+                        u32::from_le_bytes(data[exp_off + 32..exp_off + 36].try_into().unwrap());
+                    let addr_name_ordinals_rva =
+                        u32::from_le_bytes(data[exp_off + 36..exp_off + 40].try_into().unwrap());
 
                     if let (Some(names_off), Some(ordinals_off), Some(funcs_off)) = (
                         rva_to_offset(addr_names_rva),
@@ -301,30 +286,26 @@ impl PeInspector {
                                 break;
                             }
                             let name_rva = u32::from_le_bytes(
-                                data[name_ptr_off..name_ptr_off + 4]
-                                    .try_into()
-                                    .unwrap(),
+                                data[name_ptr_off..name_ptr_off + 4].try_into().unwrap(),
                             );
                             let ordinal = u16::from_le_bytes(
-                                data[ord_ptr_off..ord_ptr_off + 2]
-                                    .try_into()
-                                    .unwrap(),
+                                data[ord_ptr_off..ord_ptr_off + 2].try_into().unwrap(),
                             ) as usize;
 
                             if ordinal < num_functions {
                                 let func_ptr_off = funcs_off + ordinal * 4;
                                 if func_ptr_off + 4 <= data.len() {
                                     let func_rva = u32::from_le_bytes(
-                                        data[func_ptr_off..func_ptr_off + 4]
-                                            .try_into()
-                                            .unwrap(),
+                                        data[func_ptr_off..func_ptr_off + 4].try_into().unwrap(),
                                     );
                                     if let Some(str_off) = rva_to_offset(name_rva) {
                                         let mut end = str_off;
                                         while end < data.len() && data[end] != 0 {
                                             end += 1;
                                         }
-                                        if let Ok(name_str) = std::str::from_utf8(&data[str_off..end]) {
+                                        if let Ok(name_str) =
+                                            std::str::from_utf8(&data[str_off..end])
+                                        {
                                             exports.insert(name_str.to_string(), func_rva);
                                         }
                                     }
@@ -358,8 +339,14 @@ impl PeInspector {
             };
 
             unsafe {
-                let process: HANDLE = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, target_pid)
-                    .map_err(|e| NucleusError::Platform(format!("Failed to open PID {}: {}", target_pid, e)))?;
+                let process: HANDLE = OpenProcess(
+                    PROCESS_QUERY_LIMITED_INFORMATION,
+                    false,
+                    target_pid,
+                )
+                .map_err(|e| {
+                    NucleusError::Platform(format!("Failed to open PID {}: {}", target_pid, e))
+                })?;
 
                 let mut is_wow64 = windows::Win32::Foundation::BOOL(0);
                 let check_res = IsWow64Process(process, &mut is_wow64);

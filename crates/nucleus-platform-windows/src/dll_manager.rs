@@ -10,7 +10,7 @@ use windows::Win32::Foundation::{CloseHandle, HANDLE};
 #[cfg(windows)]
 use windows::Win32::System::Diagnostics::Debug::{ReadProcessMemory, WriteProcessMemory};
 #[cfg(windows)]
-use windows::Win32::System::Memory::{VirtualProtectEx, PAGE_PROTECTION_FLAGS};
+use windows::Win32::System::Memory::{PAGE_PROTECTION_FLAGS, VirtualProtectEx};
 #[cfg(windows)]
 use windows::Win32::System::Threading::{
     OpenProcess, PROCESS_QUERY_INFORMATION, PROCESS_VM_OPERATION, PROCESS_VM_READ, PROCESS_VM_WRITE,
@@ -31,12 +31,15 @@ impl ProcessMemoryManager for WindowsProcessMemoryManager {
     fn read_memory(&self, pid: u32, address: usize, buffer: &mut [u8]) -> NucleusResult<usize> {
         #[cfg(windows)]
         unsafe {
-            let process: HANDLE = OpenProcess(
-                PROCESS_VM_READ | PROCESS_QUERY_INFORMATION,
-                false,
-                pid,
-            )
-            .map_err(|e| NucleusError::Platform(format!("OpenProcess for read_memory failed on PID {}: {}", pid, e)))?;
+            let process: HANDLE =
+                OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_INFORMATION, false, pid).map_err(
+                    |e| {
+                        NucleusError::Platform(format!(
+                            "OpenProcess for read_memory failed on PID {}: {}",
+                            pid, e
+                        ))
+                    },
+                )?;
 
             let mut bytes_read = 0;
             let res = ReadProcessMemory(
@@ -60,19 +63,22 @@ impl ProcessMemoryManager for WindowsProcessMemoryManager {
         #[cfg(not(windows))]
         {
             let _ = (pid, address, buffer);
-            Err(NucleusError::Unsupported("Memory reading only supported on Windows".to_string()))
+            Err(NucleusError::Unsupported(
+                "Memory reading only supported on Windows".to_string(),
+            ))
         }
     }
 
     fn write_memory(&self, pid: u32, address: usize, data: &[u8]) -> NucleusResult<usize> {
         #[cfg(windows)]
         unsafe {
-            let process: HANDLE = OpenProcess(
-                PROCESS_VM_WRITE | PROCESS_VM_OPERATION,
-                false,
-                pid,
-            )
-            .map_err(|e| NucleusError::Platform(format!("OpenProcess for write_memory failed on PID {}: {}", pid, e)))?;
+            let process: HANDLE = OpenProcess(PROCESS_VM_WRITE | PROCESS_VM_OPERATION, false, pid)
+                .map_err(|e| {
+                    NucleusError::Platform(format!(
+                        "OpenProcess for write_memory failed on PID {}: {}",
+                        pid, e
+                    ))
+                })?;
 
             let mut bytes_written = 0;
             let res = WriteProcessMemory(
@@ -96,7 +102,9 @@ impl ProcessMemoryManager for WindowsProcessMemoryManager {
         #[cfg(not(windows))]
         {
             let _ = (pid, address, data);
-            Err(NucleusError::Unsupported("Memory writing only supported on Windows".to_string()))
+            Err(NucleusError::Unsupported(
+                "Memory writing only supported on Windows".to_string(),
+            ))
         }
     }
 
@@ -109,12 +117,12 @@ impl ProcessMemoryManager for WindowsProcessMemoryManager {
     ) -> NucleusResult<u32> {
         #[cfg(windows)]
         unsafe {
-            let process: HANDLE = OpenProcess(
-                PROCESS_VM_OPERATION,
-                false,
-                pid,
-            )
-            .map_err(|e| NucleusError::Platform(format!("OpenProcess for virtual_protect failed on PID {}: {}", pid, e)))?;
+            let process: HANDLE = OpenProcess(PROCESS_VM_OPERATION, false, pid).map_err(|e| {
+                NucleusError::Platform(format!(
+                    "OpenProcess for virtual_protect failed on PID {}: {}",
+                    pid, e
+                ))
+            })?;
 
             let mut old_protect = PAGE_PROTECTION_FLAGS(0);
             let res = VirtualProtectEx(
@@ -138,7 +146,9 @@ impl ProcessMemoryManager for WindowsProcessMemoryManager {
         #[cfg(not(windows))]
         {
             let _ = (pid, address, size, new_protect);
-            Err(NucleusError::Unsupported("VirtualProtect only supported on Windows".to_string()))
+            Err(NucleusError::Unsupported(
+                "VirtualProtect only supported on Windows".to_string(),
+            ))
         }
     }
 }
@@ -159,7 +169,9 @@ impl DllInjectionManager for WindowsDllInjectionManager {
         let _ = (pid, config);
         // Concrete injection logic lives in nucleus-hook (which links higher in the dependency hierarchy)
         // Platform service returns error or delegates when called from platform level
-        Err(NucleusError::Platform("Use nucleus-hook::DllInjector for full DLL injection pipeline".to_string()))
+        Err(NucleusError::Platform(
+            "Use nucleus-hook::DllInjector for full DLL injection pipeline".to_string(),
+        ))
     }
 
     fn call_export(
@@ -170,11 +182,15 @@ impl DllInjectionManager for WindowsDllInjectionManager {
         arg: Option<&str>,
     ) -> NucleusResult<u32> {
         let _ = (pid, module_handle, export, arg);
-        Err(NucleusError::Platform("Use nucleus-hook::RemoteRpc for remote export execution".to_string()))
+        Err(NucleusError::Platform(
+            "Use nucleus-hook::RemoteRpc for remote export execution".to_string(),
+        ))
     }
 
     fn eject_dll(&self, pid: u32, module_handle: usize) -> NucleusResult<()> {
         let _ = (pid, module_handle);
-        Err(NucleusError::Platform("Use nucleus-hook::DllInjector::eject_dll for ejection".to_string()))
+        Err(NucleusError::Platform(
+            "Use nucleus-hook::DllInjector::eject_dll for ejection".to_string(),
+        ))
     }
 }

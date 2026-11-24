@@ -70,7 +70,11 @@ pub struct ActiveSessionSnapshot {
 
 impl GameSession {
     /// Creates a new `GameSession` with the specified parameters.
-    pub fn new(session_id: impl Into<String>, game_guid: impl Into<String>, profile: GameProfile) -> Self {
+    pub fn new(
+        session_id: impl Into<String>,
+        game_guid: impl Into<String>,
+        profile: GameProfile,
+    ) -> Self {
         Self {
             session_id: session_id.into(),
             game_guid: game_guid.into(),
@@ -136,10 +140,14 @@ impl GameSession {
                         pause_secs,
                         i
                     );
-                    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(pause_secs);
+                    let deadline =
+                        std::time::Instant::now() + std::time::Duration::from_secs(pause_secs);
                     let mut last_announced_sec = u64::MAX;
                     while std::time::Instant::now() < deadline {
-                        let remaining = deadline.saturating_duration_since(std::time::Instant::now()).as_secs() + 1;
+                        let remaining = deadline
+                            .saturating_duration_since(std::time::Instant::now())
+                            .as_secs()
+                            + 1;
                         if remaining != last_announced_sec {
                             last_announced_sec = remaining;
                             if let Some(ref platform) = handler.platform {
@@ -154,12 +162,15 @@ impl GameSession {
                         if let Some(ref platform) = handler.platform {
                             if let Some(ref patterns) = handler.config.kill_mutex {
                                 for prev in 0..i {
-                                    if let Some(prev_pid) = handler.contexts.get(prev).and_then(|c| c.process_id) {
-                                        let _ = nucleus_handler::MutexManager::kill_matching_mutexes(
-                                            platform.mutex_manager(),
-                                            prev_pid,
-                                            patterns,
-                                        );
+                                    if let Some(prev_pid) =
+                                        handler.contexts.get(prev).and_then(|c| c.process_id)
+                                    {
+                                        let _ =
+                                            nucleus_handler::MutexManager::kill_matching_mutexes(
+                                                platform.mutex_manager(),
+                                                prev_pid,
+                                                patterns,
+                                            );
                                     }
                                 }
                             }
@@ -169,7 +180,9 @@ impl GameSession {
                 }
 
                 if let Some(ref platform) = handler.platform {
-                    platform.osd_manager().show(2000, &format!("Launching Player {}...", i + 1));
+                    platform
+                        .osd_manager()
+                        .show(2000, &format!("Launching Player {}...", i + 1));
                 }
                 handler.launch_instance(i)?;
                 let _ = handler.setup_window(i);
@@ -177,7 +190,9 @@ impl GameSession {
 
             let _ = handler.finalize_instances();
             if let Some(ref platform) = handler.platform {
-                platform.osd_manager().show(3000, "All Players Ready! Press F10 for In-Game Menu");
+                platform
+                    .osd_manager()
+                    .show(3000, "All Players Ready! Press F10 for In-Game Menu");
             }
             self.is_running = true;
             self.started_at = Some(std::time::Instant::now());
@@ -187,9 +202,7 @@ impl GameSession {
 
     /// Returns elapsed run time in seconds for this session.
     pub fn elapsed_seconds(&self) -> u64 {
-        self.started_at
-            .map(|t| t.elapsed().as_secs())
-            .unwrap_or(0)
+        self.started_at.map(|t| t.elapsed().as_secs()).unwrap_or(0)
     }
 
     /// Flushes newly accumulated playtime into the profile and updates last played timestamp.
@@ -233,7 +246,9 @@ impl GameSession {
             } else {
                 let any_running = if let Some(ref platform) = handler.platform {
                     let proc_mgr = platform.process_manager();
-                    active_pids.iter().any(|&pid| proc_mgr.is_process_running(pid))
+                    active_pids
+                        .iter()
+                        .any(|&pid| proc_mgr.is_process_running(pid))
                 } else {
                     true
                 };
@@ -341,7 +356,11 @@ impl GameSession {
     }
 
     /// Hot-swaps the assigned controller device ID for an active player slot mid-session.
-    pub fn reassign_controller(&mut self, slot_idx: usize, new_device_id: usize) -> NucleusResult<()> {
+    pub fn reassign_controller(
+        &mut self,
+        slot_idx: usize,
+        new_device_id: usize,
+    ) -> NucleusResult<()> {
         let is_slot_active = self
             .handler
             .as_ref()
@@ -375,7 +394,11 @@ impl GameSession {
     }
 
     /// Drops out an arbitrary active player slot and re-tiles survivors cleanly using `new_layout_name`.
-    pub fn drop_out_player(&mut self, slot_idx: usize, new_layout_name: &str) -> NucleusResult<usize> {
+    pub fn drop_out_player(
+        &mut self,
+        slot_idx: usize,
+        new_layout_name: &str,
+    ) -> NucleusResult<usize> {
         let mode = nucleus_handler::window::split_mode_from_name(new_layout_name);
         let remaining = if let Some(ref mut handler) = self.handler {
             let count = handler.drop_out_player(slot_idx, mode)?;
@@ -498,7 +521,11 @@ impl GameSession {
                     hwnd: None,
                 })
                 .collect();
-            (self.profile.layout.clone(), self.players.len().max(1), active_slots)
+            (
+                self.profile.layout.clone(),
+                self.players.len().max(1),
+                active_slots,
+            )
         };
 
         ActiveSessionSnapshot {
@@ -559,10 +586,7 @@ mod tests {
         assert_eq!(session.status().session_id, "sess_1");
         assert_eq!(session.status().player_count, 0);
 
-        session.set_players(vec![
-            PlayerInfo::new(0, "Alice"),
-            PlayerInfo::new(1, "Bob"),
-        ]);
+        session.set_players(vec![PlayerInfo::new(0, "Alice"), PlayerInfo::new(1, "Bob")]);
         assert_eq!(session.status().player_count, 2);
 
         session.stop().unwrap();
@@ -620,17 +644,33 @@ mod tests {
                 Ok(())
             }
             fn get_process_info(&self, pid: u32) -> NucleusResult<ProcessInfo> {
-                Ok(ProcessInfo { pid, name: "m.exe".into(), exe_path: Default::default() })
+                Ok(ProcessInfo {
+                    pid,
+                    name: "m.exe".into(),
+                    exe_path: Default::default(),
+                })
             }
             fn is_process_running(&self, pid: u32) -> bool {
                 self.0.lock().unwrap().contains(&pid)
             }
-            fn set_affinity(&self, _: u32, _: u64) -> NucleusResult<()> { Ok(()) }
-            fn set_priority(&self, _: u32, _: ProcessPriority) -> NucleusResult<()> { Ok(()) }
-            fn get_processes_by_name(&self, _: &str) -> NucleusResult<Vec<ProcessInfo>> { Ok(vec![]) }
-            fn wait_for_process(&self, _: u32, _: u32) -> NucleusResult<bool> { Ok(true) }
-            fn suspend_process(&self, _: u32) -> NucleusResult<()> { Ok(()) }
-            fn resume_process(&self, _: u32) -> NucleusResult<()> { Ok(()) }
+            fn set_affinity(&self, _: u32, _: u64) -> NucleusResult<()> {
+                Ok(())
+            }
+            fn set_priority(&self, _: u32, _: ProcessPriority) -> NucleusResult<()> {
+                Ok(())
+            }
+            fn get_processes_by_name(&self, _: &str) -> NucleusResult<Vec<ProcessInfo>> {
+                Ok(vec![])
+            }
+            fn wait_for_process(&self, _: u32, _: u32) -> NucleusResult<bool> {
+                Ok(true)
+            }
+            fn suspend_process(&self, _: u32) -> NucleusResult<()> {
+                Ok(())
+            }
+            fn resume_process(&self, _: u32) -> NucleusResult<()> {
+                Ok(())
+            }
         }
 
         #[derive(Default)]
@@ -639,85 +679,173 @@ mod tests {
             repositioned_hwnds: Mutex<Vec<u64>>,
         }
         impl WindowManager for MockWinMgr {
-            fn find_window_by_title(&self, _: &str, _: bool) -> NucleusResult<Option<WindowHandle>> { Ok(None) }
+            fn find_window_by_title(
+                &self,
+                _: &str,
+                _: bool,
+            ) -> NucleusResult<Option<WindowHandle>> {
+                Ok(None)
+            }
             fn find_windows_by_process(&self, pid: u32) -> NucleusResult<Vec<WindowHandle>> {
-                Ok(self.pid_to_hwnd.lock().unwrap().get(&pid).map(|&h| vec![WindowHandle(h)]).unwrap_or_default())
+                Ok(self
+                    .pid_to_hwnd
+                    .lock()
+                    .unwrap()
+                    .get(&pid)
+                    .map(|&h| vec![WindowHandle(h)])
+                    .unwrap_or_default())
             }
             fn set_window_position(&self, handle: WindowHandle, _: &Rect) -> NucleusResult<()> {
                 self.repositioned_hwnds.lock().unwrap().push(handle.0);
                 Ok(())
             }
-            fn set_window_style(&self, _: WindowHandle, _: &WindowStyle) -> NucleusResult<()> { Ok(()) }
-            fn set_topmost(&self, _: WindowHandle, _: bool) -> NucleusResult<()> { Ok(()) }
-            fn remove_borders(&self, _: WindowHandle) -> NucleusResult<()> { Ok(()) }
-            fn get_window_rect(&self, _: WindowHandle) -> NucleusResult<Rect> { Ok(Rect::new(0, 0, 1280, 720)) }
-            fn set_foreground(&self, _: WindowHandle) -> NucleusResult<()> { Ok(()) }
-            fn get_window_title(&self, _: WindowHandle) -> NucleusResult<String> { Ok(String::new()) }
-            fn set_window_title(&self, _: WindowHandle, _: &str) -> NucleusResult<()> { Ok(()) }
-            fn close_window(&self, _: WindowHandle) -> NucleusResult<()> { Ok(()) }
+            fn set_window_style(&self, _: WindowHandle, _: &WindowStyle) -> NucleusResult<()> {
+                Ok(())
+            }
+            fn set_topmost(&self, _: WindowHandle, _: bool) -> NucleusResult<()> {
+                Ok(())
+            }
+            fn remove_borders(&self, _: WindowHandle) -> NucleusResult<()> {
+                Ok(())
+            }
+            fn get_window_rect(&self, _: WindowHandle) -> NucleusResult<Rect> {
+                Ok(Rect::new(0, 0, 1280, 720))
+            }
+            fn set_foreground(&self, _: WindowHandle) -> NucleusResult<()> {
+                Ok(())
+            }
+            fn get_window_title(&self, _: WindowHandle) -> NucleusResult<String> {
+                Ok(String::new())
+            }
+            fn set_window_title(&self, _: WindowHandle, _: &str) -> NucleusResult<()> {
+                Ok(())
+            }
+            fn close_window(&self, _: WindowHandle) -> NucleusResult<()> {
+                Ok(())
+            }
         }
 
         #[derive(Default)]
         struct MockDispMgr;
         impl DisplayManager for MockDispMgr {
             fn get_displays(&self) -> NucleusResult<Vec<Display>> {
-                Ok(vec![Display { id: 0, name: "P".into(), bounds: Rect::new(0, 0, 1920, 1080), is_primary: true, scale_factor: 1.0 }])
+                Ok(vec![Display {
+                    id: 0,
+                    name: "P".into(),
+                    bounds: Rect::new(0, 0, 1920, 1080),
+                    is_primary: true,
+                    scale_factor: 1.0,
+                }])
             }
             fn get_primary_display(&self) -> NucleusResult<Display> {
-                Ok(Display { id: 0, name: "P".into(), bounds: Rect::new(0, 0, 1920, 1080), is_primary: true, scale_factor: 1.0 })
+                Ok(Display {
+                    id: 0,
+                    name: "P".into(),
+                    bounds: Rect::new(0, 0, 1920, 1080),
+                    is_primary: true,
+                    scale_factor: 1.0,
+                })
             }
-            fn get_dpi_for_display(&self, _: u32) -> NucleusResult<f64> { Ok(96.0) }
+            fn get_dpi_for_display(&self, _: u32) -> NucleusResult<f64> {
+                Ok(96.0)
+            }
         }
 
         #[derive(Default)]
         struct DummyHook;
         impl InputHookManager for DummyHook {
-            fn inject_hook_dll(&self, _: u32, _: &Path) -> NucleusResult<()> { Ok(()) }
-            fn send_fake_focus(&self, _: WindowHandle) -> NucleusResult<()> { Ok(()) }
-            fn block_raw_input(&self, _: u32, _: bool) -> NucleusResult<()> { Ok(()) }
+            fn inject_hook_dll(&self, _: u32, _: &Path) -> NucleusResult<()> {
+                Ok(())
+            }
+            fn send_fake_focus(&self, _: WindowHandle) -> NucleusResult<()> {
+                Ok(())
+            }
+            fn block_raw_input(&self, _: u32, _: bool) -> NucleusResult<()> {
+                Ok(())
+            }
         }
         #[derive(Default)]
         struct DummyFs;
         impl FilesystemManager for DummyFs {
-            fn create_symlink(&self, _: &Path, _: &Path) -> NucleusResult<()> { Ok(()) }
-            fn create_directory_symlink(&self, _: &Path, _: &Path) -> NucleusResult<()> { Ok(()) }
-            fn create_hardlink(&self, _: &Path, _: &Path) -> NucleusResult<()> { Ok(()) }
-            fn create_junction(&self, _: &Path, _: &Path) -> NucleusResult<()> { Ok(()) }
-            fn is_symlink(&self, _: &Path) -> bool { false }
+            fn create_symlink(&self, _: &Path, _: &Path) -> NucleusResult<()> {
+                Ok(())
+            }
+            fn create_directory_symlink(&self, _: &Path, _: &Path) -> NucleusResult<()> {
+                Ok(())
+            }
+            fn create_hardlink(&self, _: &Path, _: &Path) -> NucleusResult<()> {
+                Ok(())
+            }
+            fn create_junction(&self, _: &Path, _: &Path) -> NucleusResult<()> {
+                Ok(())
+            }
+            fn is_symlink(&self, _: &Path) -> bool {
+                false
+            }
         }
         #[derive(Default)]
         struct DummyMutex;
         impl MutexManager for DummyMutex {
-            fn kill_mutex(&self, _: u32, _: &str, _: &str) -> NucleusResult<bool> { Ok(false) }
-            fn rename_mutex(&self, _: u32, _: &str, _: &str) -> NucleusResult<bool> { Ok(false) }
-            fn find_mutex(&self, _: u32, _: &str, _: bool) -> NucleusResult<Vec<String>> { Ok(vec![]) }
+            fn kill_mutex(&self, _: u32, _: &str, _: &str) -> NucleusResult<bool> {
+                Ok(false)
+            }
+            fn rename_mutex(&self, _: u32, _: &str, _: &str) -> NucleusResult<bool> {
+                Ok(false)
+            }
+            fn find_mutex(&self, _: u32, _: &str, _: bool) -> NucleusResult<Vec<String>> {
+                Ok(vec![])
+            }
         }
         #[derive(Default)]
         struct DummyNet;
         impl NetworkManager for DummyNet {
-            fn get_interfaces(&self) -> NucleusResult<Vec<NetworkInterface>> { Ok(vec![]) }
-            fn create_virtual_adapter(&self) -> NucleusResult<NetworkInterface> { unreachable!() }
-            fn set_adapter_ip(&self, _: &str, _: &str, _: &str) -> NucleusResult<()> { Ok(()) }
+            fn get_interfaces(&self) -> NucleusResult<Vec<NetworkInterface>> {
+                Ok(vec![])
+            }
+            fn create_virtual_adapter(&self) -> NucleusResult<NetworkInterface> {
+                unreachable!()
+            }
+            fn set_adapter_ip(&self, _: &str, _: &str, _: &str) -> NucleusResult<()> {
+                Ok(())
+            }
         }
         #[derive(Default)]
         struct DummyTaskbar;
         impl TaskbarManager for DummyTaskbar {
-            fn hide(&self) -> NucleusResult<()> { Ok(()) }
-            fn show(&self) -> NucleusResult<()> { Ok(()) }
+            fn hide(&self) -> NucleusResult<()> {
+                Ok(())
+            }
+            fn show(&self) -> NucleusResult<()> {
+                Ok(())
+            }
         }
         #[derive(Default)]
         struct DummyElev;
         impl ElevationManager for DummyElev {
-            fn is_elevated(&self) -> bool { false }
-            fn run_elevated(&self, _: &Path, _: &[&str], _: Option<&Path>, _: bool) -> NucleusResult<Option<u32>> { Ok(None) }
-            fn ensure_symlink_support(&self) -> NucleusResult<bool> { Ok(true) }
+            fn is_elevated(&self) -> bool {
+                false
+            }
+            fn run_elevated(
+                &self,
+                _: &Path,
+                _: &[&str],
+                _: Option<&Path>,
+                _: bool,
+            ) -> NucleusResult<Option<u32>> {
+                Ok(None)
+            }
+            fn ensure_symlink_support(&self) -> NucleusResult<bool> {
+                Ok(true)
+            }
         }
         #[derive(Default)]
         struct DummyOsd;
         impl OsdManager for DummyOsd {
             fn show(&self, _: u32, _: &str) {}
             fn hide(&self) {}
-            fn current_message(&self) -> Option<String> { None }
+            fn current_message(&self) -> Option<String> {
+                None
+            }
             fn set_color(&self, _: &str) {}
         }
 
@@ -736,19 +864,45 @@ mod tests {
             cred: nucleus_platform::credentials::InMemoryCredentialStore,
         }
         impl PlatformServices for MockPlat {
-            fn credential_store(&self) -> &dyn nucleus_platform::credentials::CredentialStore { &self.cred }
-            fn window_manager(&self) -> &dyn WindowManager { &self.win_mgr }
-            fn process_manager(&self) -> &dyn ProcessManager { &self.proc_mgr }
-            fn display_manager(&self) -> &dyn DisplayManager { &self.disp_mgr }
-            fn input_hook_manager(&self) -> &dyn InputHookManager { &self.hook }
-            fn filesystem_manager(&self) -> &dyn FilesystemManager { &self.fs }
-            fn registry_manager(&self) -> Option<&dyn RegistryManager> { None }
-            fn taskbar_manager(&self) -> &dyn TaskbarManager { &self.tb }
-            fn mutex_manager(&self) -> &dyn MutexManager { &self.mtx }
-            fn user_account_manager(&self) -> Option<&dyn UserAccountManager> { None }
-            fn network_manager(&self) -> &dyn NetworkManager { &self.net }
-            fn elevation_manager(&self) -> &dyn ElevationManager { &self.elev }
-            fn osd_manager(&self) -> &dyn OsdManager { &self.osd }
+            fn credential_store(&self) -> &dyn nucleus_platform::credentials::CredentialStore {
+                &self.cred
+            }
+            fn window_manager(&self) -> &dyn WindowManager {
+                &self.win_mgr
+            }
+            fn process_manager(&self) -> &dyn ProcessManager {
+                &self.proc_mgr
+            }
+            fn display_manager(&self) -> &dyn DisplayManager {
+                &self.disp_mgr
+            }
+            fn input_hook_manager(&self) -> &dyn InputHookManager {
+                &self.hook
+            }
+            fn filesystem_manager(&self) -> &dyn FilesystemManager {
+                &self.fs
+            }
+            fn registry_manager(&self) -> Option<&dyn RegistryManager> {
+                None
+            }
+            fn taskbar_manager(&self) -> &dyn TaskbarManager {
+                &self.tb
+            }
+            fn mutex_manager(&self) -> &dyn MutexManager {
+                &self.mtx
+            }
+            fn user_account_manager(&self) -> Option<&dyn UserAccountManager> {
+                None
+            }
+            fn network_manager(&self) -> &dyn NetworkManager {
+                &self.net
+            }
+            fn elevation_manager(&self) -> &dyn ElevationManager {
+                &self.elev
+            }
+            fn osd_manager(&self) -> &dyn OsdManager {
+                &self.osd
+            }
         }
 
         let plat = Arc::new(MockPlat::default());
@@ -801,7 +955,10 @@ mod tests {
         session.started_at = Some(std::time::Instant::now());
 
         session.tick().unwrap();
-        assert!(session.is_running, "Session must stay running while active slots 0 & 2 live");
+        assert!(
+            session.is_running,
+            "Session must stay running while active slots 0 & 2 live"
+        );
         assert_eq!(
             plat.win_mgr.repositioned_hwnds.lock().unwrap().clone(),
             vec![1010, 1030],

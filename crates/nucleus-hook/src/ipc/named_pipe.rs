@@ -1,7 +1,7 @@
 //! Windows Named Pipe IPC server and connection handling.
 
 use nucleus_common::error::{NucleusError, NucleusResult};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::Mutex;
@@ -25,8 +25,9 @@ impl IpcMessage {
 
     /// Serializes a value into a JSON IPC message.
     pub fn from_json<T: Serialize>(value: &T) -> NucleusResult<Self> {
-        let json_str = serde_json::to_string(value)
-            .map_err(|e| NucleusError::Ipc(format!("Failed to serialize IPC payload to JSON: {e}")))?;
+        let json_str = serde_json::to_string(value).map_err(|e| {
+            NucleusError::Ipc(format!("Failed to serialize IPC payload to JSON: {e}"))
+        })?;
         Ok(Self::new(json_str))
     }
 
@@ -83,7 +84,9 @@ impl NamedPipeConnection {
         #[cfg(not(windows))]
         {
             let _ = msg;
-            Err(NucleusError::Platform("Named pipes are only supported on Windows".into()))
+            Err(NucleusError::Platform(
+                "Named pipes are only supported on Windows".into(),
+            ))
         }
     }
 
@@ -109,14 +112,17 @@ impl NamedPipeConnection {
                 .await
                 .map_err(|e| NucleusError::Ipc(format!("Failed reading IPC payload: {e}")))?;
 
-            let payload_str = String::from_utf8(payload_buf)
-                .map_err(|e| NucleusError::Ipc(format!("Incoming IPC payload is not valid UTF-8: {e}")))?;
+            let payload_str = String::from_utf8(payload_buf).map_err(|e| {
+                NucleusError::Ipc(format!("Incoming IPC payload is not valid UTF-8: {e}"))
+            })?;
 
             Ok(IpcMessage::new(payload_str))
         }
         #[cfg(not(windows))]
         {
-            Err(NucleusError::Platform("Named pipes are only supported on Windows".into()))
+            Err(NucleusError::Platform(
+                "Named pipes are only supported on Windows".into(),
+            ))
         }
     }
 }
@@ -137,7 +143,9 @@ impl NamedPipeIpcServer {
             let server = tokio::net::windows::named_pipe::ServerOptions::new()
                 .first_pipe_instance(true)
                 .create(pipe_name)
-                .map_err(|e| NucleusError::Ipc(format!("Failed to bind named pipe {pipe_name}: {e}")))?;
+                .map_err(|e| {
+                    NucleusError::Ipc(format!("Failed to bind named pipe {pipe_name}: {e}"))
+                })?;
 
             Ok(Self {
                 pipe_name: pipe_name.to_string(),
@@ -147,7 +155,9 @@ impl NamedPipeIpcServer {
         #[cfg(not(windows))]
         {
             let _ = pipe_name;
-            Err(NucleusError::Platform("Named pipes are only supported on Windows".into()))
+            Err(NucleusError::Platform(
+                "Named pipes are only supported on Windows".into(),
+            ))
         }
     }
 
@@ -173,16 +183,20 @@ impl NamedPipeIpcServer {
                     })?,
             };
 
-            server
-                .connect()
-                .await
-                .map_err(|e| NucleusError::Ipc(format!("Failed waiting for client to connect on {}: {e}", self.pipe_name)))?;
+            server.connect().await.map_err(|e| {
+                NucleusError::Ipc(format!(
+                    "Failed waiting for client to connect on {}: {e}",
+                    self.pipe_name
+                ))
+            })?;
 
             Ok(NamedPipeConnection { server })
         }
         #[cfg(not(windows))]
         {
-            Err(NucleusError::Platform("Named pipes are only supported on Windows".into()))
+            Err(NucleusError::Platform(
+                "Named pipes are only supported on Windows".into(),
+            ))
         }
     }
 }
@@ -196,23 +210,30 @@ pub fn send_pipe_message_sync(pipe_name: &str, payload: &str) -> NucleusResult<S
             .read(true)
             .write(true)
             .open(pipe_name)
-            .map_err(|e| NucleusError::Ipc(format!("Failed to connect to named pipe '{pipe_name}': {e}")))?;
+            .map_err(|e| {
+                NucleusError::Ipc(format!(
+                    "Failed to connect to named pipe '{pipe_name}': {e}"
+                ))
+            })?;
 
         let len_prefix = (payload.len() as u32).to_le_bytes();
-        file.write_all(&len_prefix)
-            .map_err(|e| NucleusError::Ipc(format!("Failed to write length prefix to pipe: {e}")))?;
+        file.write_all(&len_prefix).map_err(|e| {
+            NucleusError::Ipc(format!("Failed to write length prefix to pipe: {e}"))
+        })?;
         file.write_all(payload.as_bytes())
             .map_err(|e| NucleusError::Ipc(format!("Failed to write payload to pipe: {e}")))?;
         file.flush()
             .map_err(|e| NucleusError::Ipc(format!("Failed to flush pipe: {e}")))?;
 
         let mut len_buf = [0u8; 4];
-        file.read_exact(&mut len_buf)
-            .map_err(|e| NucleusError::Ipc(format!("Failed to read response length from pipe: {e}")))?;
+        file.read_exact(&mut len_buf).map_err(|e| {
+            NucleusError::Ipc(format!("Failed to read response length from pipe: {e}"))
+        })?;
         let resp_len = u32::from_le_bytes(len_buf) as usize;
         let mut resp_buf = vec![0u8; resp_len];
-        file.read_exact(&mut resp_buf)
-            .map_err(|e| NucleusError::Ipc(format!("Failed to read response payload from pipe: {e}")))?;
+        file.read_exact(&mut resp_buf).map_err(|e| {
+            NucleusError::Ipc(format!("Failed to read response payload from pipe: {e}"))
+        })?;
 
         String::from_utf8(resp_buf)
             .map_err(|e| NucleusError::Ipc(format!("Response from pipe is not valid UTF-8: {e}")))
@@ -220,6 +241,8 @@ pub fn send_pipe_message_sync(pipe_name: &str, payload: &str) -> NucleusResult<S
     #[cfg(not(windows))]
     {
         let _ = (pipe_name, payload);
-        Err(NucleusError::Platform("Named pipes are only supported on Windows".into()))
+        Err(NucleusError::Platform(
+            "Named pipes are only supported on Windows".into(),
+        ))
     }
 }

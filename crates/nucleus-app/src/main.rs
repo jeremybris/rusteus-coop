@@ -1303,11 +1303,12 @@ fn launch_gui(
             )
         };
 
-        let existing_guids: std::collections::HashSet<String> = if let Ok(mgr) = gm_version_install.lock() {
-            mgr.get_handlers().keys().cloned().collect()
-        } else {
-            std::collections::HashSet::new()
-        };
+        let existing_guids: std::collections::HashSet<String> =
+            if let Ok(mgr) = gm_version_install.lock() {
+                mgr.get_handlers().keys().cloned().collect()
+            } else {
+                std::collections::HashSet::new()
+            };
 
         let on_prog = {
             let cb = progress_cb;
@@ -1493,11 +1494,20 @@ fn launch_gui(
         if let Ok(mut mgr) = gm_drive_scan.lock() {
             if let Ok(found) = mgr.scan_disks() {
                 for fg in found {
-                    let exe_name = fg.exe_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                    if let Some(h) = mgr.get_handlers().values().find(|h| {
-                        h.executable_name.eq_ignore_ascii_case(exe_name)
-                            || h.game_name.eq_ignore_ascii_case(&fg.name)
-                    }).cloned() {
+                    let exe_name = fg
+                        .exe_path
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("");
+                    if let Some(h) = mgr
+                        .get_handlers()
+                        .values()
+                        .find(|h| {
+                            h.executable_name.eq_ignore_ascii_case(exe_name)
+                                || h.game_name.eq_ignore_ascii_case(&fg.name)
+                        })
+                        .cloned()
+                    {
                         let profile = mgr.get_profile(&h.guid).cloned();
                         let meta_info = mgr
                             .meta_info()
@@ -1505,7 +1515,12 @@ fn launch_gui(
                             .or_else(|| mgr.meta_info().find_entry(&h.game_name))
                             .map(|(_, e)| e)
                             .cloned();
-                        results.push(build_handler_item(&h.guid, &h, profile.as_ref(), meta_info.as_ref()));
+                        results.push(build_handler_item(
+                            &h.guid,
+                            &h,
+                            profile.as_ref(),
+                            meta_info.as_ref(),
+                        ));
                     }
                 }
             }
@@ -1832,51 +1847,52 @@ fn launch_gui(
     };
 
     // Extensions & Add-ons callbacks
-    let load_ui_extension_items = |engine: &Arc<Mutex<GameManager>>| -> Vec<nucleus_ui::extensions_view::ExtensionItem> {
-        if let Ok(mgr) = engine.lock() {
-            if let Some(ext_mgr) = mgr.extension_manager() {
-                let loaded = ext_mgr.lock();
-                let mut items: Vec<_> = loaded
-                    .loaded_plugins()
-                    .values()
-                    .map(|p| {
-                        let ext_type = match p.manifest.kind {
-                            nucleus_plugin::PluginKind::Wasm => {
-                                nucleus_ui::extensions_view::ExtensionType::WasmPlugin
-                            }
-                            nucleus_plugin::PluginKind::JsAddon => {
-                                nucleus_ui::extensions_view::ExtensionType::JsAddon
-                            }
-                            _ => nucleus_ui::extensions_view::ExtensionType::LegacyPlugin,
-                        };
-                        let perms = p
-                            .manifest
-                            .permissions
-                            .iter()
-                            .map(|perm| (perm.display_title().to_string(), true))
-                            .collect();
-                        nucleus_ui::extensions_view::ExtensionItem {
-                            id: p.manifest.id.clone(),
-                            name: p.manifest.name.clone(),
-                            version: p.manifest.version.to_string(),
-                            author: p
+    let load_ui_extension_items =
+        |engine: &Arc<Mutex<GameManager>>| -> Vec<nucleus_ui::extensions_view::ExtensionItem> {
+            if let Ok(mgr) = engine.lock() {
+                if let Some(ext_mgr) = mgr.extension_manager() {
+                    let loaded = ext_mgr.lock();
+                    let mut items: Vec<_> = loaded
+                        .loaded_plugins()
+                        .values()
+                        .map(|p| {
+                            let ext_type = match p.manifest.kind {
+                                nucleus_plugin::PluginKind::Wasm => {
+                                    nucleus_ui::extensions_view::ExtensionType::WasmPlugin
+                                }
+                                nucleus_plugin::PluginKind::JsAddon => {
+                                    nucleus_ui::extensions_view::ExtensionType::JsAddon
+                                }
+                                _ => nucleus_ui::extensions_view::ExtensionType::LegacyPlugin,
+                            };
+                            let perms = p
                                 .manifest
-                                .author
-                                .clone()
-                                .unwrap_or_else(|| "Community".to_string()),
-                            description: p.manifest.description.clone().unwrap_or_default(),
-                            is_enabled: p.status == nucleus_plugin::PluginStatus::Active,
-                            extension_type: ext_type,
-                            permissions: perms,
-                        }
-                    })
-                    .collect();
-                items.sort_by(|a, b| a.name.cmp(&b.name));
-                return items;
+                                .permissions
+                                .iter()
+                                .map(|perm| (perm.display_title().to_string(), true))
+                                .collect();
+                            nucleus_ui::extensions_view::ExtensionItem {
+                                id: p.manifest.id.clone(),
+                                name: p.manifest.name.clone(),
+                                version: p.manifest.version.to_string(),
+                                author: p
+                                    .manifest
+                                    .author
+                                    .clone()
+                                    .unwrap_or_else(|| "Community".to_string()),
+                                description: p.manifest.description.clone().unwrap_or_default(),
+                                is_enabled: p.status == nucleus_plugin::PluginStatus::Active,
+                                extension_type: ext_type,
+                                permissions: perms,
+                            }
+                        })
+                        .collect();
+                    items.sort_by(|a, b| a.name.cmp(&b.name));
+                    return items;
+                }
             }
-        }
-        Vec::new()
-    };
+            Vec::new()
+        };
 
     let gm_toggle_ext = gm.clone();
     let toggle_ext_cb = move |ext_id: &str, enabled: bool| {

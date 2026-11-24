@@ -7,17 +7,50 @@ use std::str::FromStr;
 
 #[test]
 fn test_peerparty_service_roundtrip_and_aliases() {
-    assert_eq!(PeerPartyService::from_str("steam").unwrap(), PeerPartyService::Steamworks);
-    assert_eq!(PeerPartyService::from_str("Steamworks").unwrap(), PeerPartyService::Steamworks);
-    assert_eq!(PeerPartyService::from_str("EOS").unwrap(), PeerPartyService::EpicOnlineServices);
-    assert_eq!(PeerPartyService::from_str("epic").unwrap(), PeerPartyService::EpicOnlineServices);
-    assert_eq!(PeerPartyService::from_str("playfab").unwrap(), PeerPartyService::PlayFab);
-    assert_eq!(PeerPartyService::from_str("galaxy").unwrap(), PeerPartyService::GogGalaxy);
-    assert_eq!(PeerPartyService::from_str("photon").unwrap(), PeerPartyService::Photon);
-    assert_eq!(PeerPartyService::from_str("pun").unwrap(), PeerPartyService::Photon);
-    assert_eq!(PeerPartyService::from_str("ugs").unwrap(), PeerPartyService::UnityGamingServices);
-    assert_eq!(PeerPartyService::from_str("demonware").unwrap(), PeerPartyService::Demonware);
-    assert_eq!(PeerPartyService::from_str("xbox").unwrap(), PeerPartyService::XboxLive);
+    assert_eq!(
+        PeerPartyService::from_str("steam").unwrap(),
+        PeerPartyService::Steamworks
+    );
+    assert_eq!(
+        PeerPartyService::from_str("Steamworks").unwrap(),
+        PeerPartyService::Steamworks
+    );
+    assert_eq!(
+        PeerPartyService::from_str("EOS").unwrap(),
+        PeerPartyService::EpicOnlineServices
+    );
+    assert_eq!(
+        PeerPartyService::from_str("epic").unwrap(),
+        PeerPartyService::EpicOnlineServices
+    );
+    assert_eq!(
+        PeerPartyService::from_str("playfab").unwrap(),
+        PeerPartyService::PlayFab
+    );
+    assert_eq!(
+        PeerPartyService::from_str("galaxy").unwrap(),
+        PeerPartyService::GogGalaxy
+    );
+    assert_eq!(
+        PeerPartyService::from_str("photon").unwrap(),
+        PeerPartyService::Photon
+    );
+    assert_eq!(
+        PeerPartyService::from_str("pun").unwrap(),
+        PeerPartyService::Photon
+    );
+    assert_eq!(
+        PeerPartyService::from_str("ugs").unwrap(),
+        PeerPartyService::UnityGamingServices
+    );
+    assert_eq!(
+        PeerPartyService::from_str("demonware").unwrap(),
+        PeerPartyService::Demonware
+    );
+    assert_eq!(
+        PeerPartyService::from_str("xbox").unwrap(),
+        PeerPartyService::XboxLive
+    );
 
     assert_eq!(PeerPartyService::Steamworks.as_str(), "steam");
     assert_eq!(PeerPartyService::EpicOnlineServices.as_str(), "eos");

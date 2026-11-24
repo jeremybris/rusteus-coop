@@ -80,7 +80,8 @@ pub fn render_big_picture_settings_view(
                                     "btn-settings-tab-general",
                                     "General",
                                     !is_controllers_tab,
-                                    win.settings_focus_zone == 0 && win.big_picture_settings_tab == 0,
+                                    win.settings_focus_zone == 0
+                                        && win.big_picture_settings_tab == 0,
                                     |this, cx| {
                                         this.big_picture_settings_tab = 0;
                                         cx.notify();
@@ -91,7 +92,8 @@ pub fn render_big_picture_settings_view(
                                     "btn-settings-tab-controllers",
                                     "Controllers",
                                     is_controllers_tab,
-                                    win.settings_focus_zone == 0 && win.big_picture_settings_tab == 1,
+                                    win.settings_focus_zone == 0
+                                        && win.big_picture_settings_tab == 1,
                                     |this, cx| {
                                         this.big_picture_settings_tab = 1;
                                         cx.notify();
@@ -314,10 +316,7 @@ fn render_controllers_sidebar_summary(
 }
 
 /// Screen 4: General Settings Panel.
-fn render_general_panel(
-    win: &MainWindow,
-    cx: &mut Context<MainWindow>,
-) -> AnyElement {
+fn render_general_panel(win: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
     let start_in_bp = win.app_settings.start_in_big_picture;
 
     div()
@@ -466,10 +465,7 @@ fn render_general_panel(
 }
 
 /// Screen 5: Controllers Settings Panel.
-fn render_controllers_panel(
-    win: &MainWindow,
-    cx: &mut Context<MainWindow>,
-) -> AnyElement {
+fn render_controllers_panel(win: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
     let target_game = win
         .selected_game
         .clone()
@@ -537,11 +533,10 @@ fn render_controllers_panel(
                         1 => rgb(0x3b82f6).into(),
                         _ => theme::text_muted(),
                     };
-                    let is_active_identifying = win
-                        .identifying_controller_guid
-                        .as_deref()
-                        == Some(&d_guid);
-                    let is_card_focused = win.settings_focus_zone == 1 && win.settings_item_index == idx + 1;
+                    let is_active_identifying =
+                        win.identifying_controller_guid.as_deref() == Some(&d_guid);
+                    let is_card_focused =
+                        win.settings_focus_zone == 1 && win.settings_item_index == idx + 1;
 
                     div()
                         .id(("settings-device-card", idx))
@@ -614,7 +609,9 @@ fn render_controllers_panel(
                                         .py_1()
                                         .rounded_md()
                                         .bg(theme::bg_subtle())
-                                        .hover(|s| s.bg(theme::bg_active()).border_color(theme::accent()))
+                                        .hover(|s| {
+                                            s.bg(theme::bg_active()).border_color(theme::accent())
+                                        })
                                         .on_click({
                                             let guid_c = d_guid.clone();
                                             let name_c = d_name.clone();
@@ -638,13 +635,13 @@ fn render_controllers_panel(
                                                 }),
                                         )
                                         .child(
-                                            Icon::new(IconName::ChevronRight)
-                                                .size_3()
-                                                .text_color(if is_active_identifying {
+                                            Icon::new(IconName::ChevronRight).size_3().text_color(
+                                                if is_active_identifying {
                                                     theme::accent()
                                                 } else {
                                                     theme::text_muted()
-                                                }),
+                                                },
+                                            ),
                                         ),
                                 ),
                         )
@@ -652,7 +649,8 @@ fn render_controllers_panel(
         )
         // Ignored devices footer row
         .child({
-            let is_ignored_focused = win.settings_focus_zone == 1 && win.settings_item_index == devices.len() + 1;
+            let is_ignored_focused =
+                win.settings_focus_zone == 1 && win.settings_item_index == devices.len() + 1;
             div()
                 .flex()
                 .items_center()

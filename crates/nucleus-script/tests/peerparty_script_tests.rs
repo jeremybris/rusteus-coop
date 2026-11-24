@@ -52,7 +52,9 @@ fn test_inject_context_peerparty_reflection() {
     ctx.peerparty_room = Some("ROOM_ALPHA".to_string());
 
     let mut engine = ScriptEngine::new().unwrap();
-    engine.inject_context(&ctx).expect("failed to inject context");
+    engine
+        .inject_context(&ctx)
+        .expect("failed to inject context");
 
     let res_use = engine
         .execute("Context.UsePeerParty;")

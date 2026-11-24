@@ -10,9 +10,7 @@ use crate::window::{WindowBounds, WindowSetup};
 use nucleus_common::error::{NucleusError, NucleusResult};
 use nucleus_platform::PlatformServices;
 use nucleus_script::{HandlerConfig, HandlerContext, ScriptEngine};
-use nucleus_tools::{
-    DevReorderTool, Sdl2Tool, SteamEmuTool, X360ceTool, XInputPlusTool,
-};
+use nucleus_tools::{DevReorderTool, Sdl2Tool, SteamEmuTool, X360ceTool, XInputPlusTool};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -211,7 +209,13 @@ impl GameHandler {
             .config
             .guid
             .chars()
-            .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                    c
+                } else {
+                    '_'
+                }
+            })
             .collect();
         self.resolve_nucleus_root()
             .join("content")
@@ -256,7 +260,8 @@ impl GameHandler {
                     format!("{who}: {prompt}")
                 };
                 // Answers are stored one per line.
-                self.prompt_text(&message, default).replace(['\r', '\n'], " ")
+                self.prompt_text(&message, default)
+                    .replace(['\r', '\n'], " ")
             })
             .collect();
         if save || save_and_edit {
@@ -345,7 +350,11 @@ impl GameHandler {
             return;
         };
         if let Some((_, calls)) = self.proto_recordings.iter().find(|(w, _)| *w == which) {
-            tracing::info!("Applying handler {:?} callback ({} operation(s))", which, calls.len());
+            tracing::info!(
+                "Applying handler {:?} callback ({} operation(s))",
+                which,
+                calls.len()
+            );
             session.replay(calls);
         }
     }
@@ -359,7 +368,10 @@ impl GameHandler {
         }
         if let Some(ref session) = self.proto_session {
             session.set_input_lock(locked, self.config.legacy.lock_input_suspends_explorer);
-            tracing::info!("ProtoInput input lock {}", if locked { "engaged" } else { "released" });
+            tracing::info!(
+                "ProtoInput input lock {}",
+                if locked { "engaged" } else { "released" }
+            );
         }
         self.replay_proto_callback(if locked {
             nucleus_script::proto_script::ProtoCallback::InputLocked
@@ -858,7 +870,12 @@ impl GameHandler {
         {
             use crate::file_ops::{FolderLinkMode, place_folders};
             let legacy = &self.config.legacy;
-            place_folders(&self.game_dir, &inst_folder, &legacy.copy_folders_to, FolderLinkMode::Copy);
+            place_folders(
+                &self.game_dir,
+                &inst_folder,
+                &legacy.copy_folders_to,
+                FolderLinkMode::Copy,
+            );
             place_folders(
                 &self.game_dir,
                 &inst_folder,
@@ -878,13 +895,18 @@ impl GameHandler {
             );
             if !legacy.delete_files.is_empty() {
                 let ignore_prompt = self.config.ignore_delete_files_prompt;
-                crate::file_ops::delete_files(&inst_folder, &legacy.delete_files, slot_idx, |path| {
-                    ignore_prompt
-                        || self.confirm_user(&format!(
-                            "Are you sure you want to delete '{}'?",
-                            path.display()
-                        ))
-                });
+                crate::file_ops::delete_files(
+                    &inst_folder,
+                    &legacy.delete_files,
+                    slot_idx,
+                    |path| {
+                        ignore_prompt
+                            || self.confirm_user(&format!(
+                                "Are you sure you want to delete '{}'?",
+                                path.display()
+                            ))
+                    },
+                );
             }
         }
 
@@ -892,400 +914,420 @@ impl GameHandler {
         // `Game.GamePlayBeforeGameSetup` asks for the opposite order.
         let play_first = self.config.legacy.game_play_before_game_setup;
         let mut staged_ctx: Option<HandlerContext> = None;
-        for run_play in if play_first { [true, false] } else { [false, true] } {
+        for run_play in if play_first {
+            [true, false]
+        } else {
+            [false, true]
+        } {
             if !run_play {
-            let peerparty_handles_steam = self.config.use_peerparty
-                && self
-                    .config
-                    .peerparty_services
-                    .as_ref()
-                    .map(|s| {
-                        s.iter().any(|v| {
-                            v.eq_ignore_ascii_case("steam") || v.eq_ignore_ascii_case("steamworks")
+                let peerparty_handles_steam = self.config.use_peerparty
+                    && self
+                        .config
+                        .peerparty_services
+                        .as_ref()
+                        .map(|s| {
+                            s.iter().any(|v| {
+                                v.eq_ignore_ascii_case("steam")
+                                    || v.eq_ignore_ascii_case("steamworks")
+                            })
                         })
-                    })
-                    .unwrap_or(true);
+                        .unwrap_or(true);
 
-            if self.config.use_goldberg && !peerparty_handles_steam {
-                let steam_id = if self.config.steam_id.is_empty() {
-                    "480"
-                } else {
-                    &self.config.steam_id
-                };
-                let nickname = format!("Player{}", slot_idx + 1);
-                let handler_folder_path = self.config.handler_folder.as_deref().map(Path::new);
-                let custom_steam_paths: Option<&[String]> =
-                    if let Some(ref custom) = self.config.custom_steam_api_dll_path {
-                        Some(custom.as_slice())
+                if self.config.use_goldberg && !peerparty_handles_steam {
+                    let steam_id = if self.config.steam_id.is_empty() {
+                        "480"
                     } else {
-                        discovered_steam_paths
+                        &self.config.steam_id
                     };
-                let goldberg_opts = nucleus_tools::steam_emu::GoldbergDeployOptions {
-                    instance_dir: &inst_folder,
-                    orig_game_dir: &self.game_dir,
-                    utils_dir: &utils_dir,
-                    steam_id,
-                    player_index: slot_idx,
-                    nickname: &nickname,
-                    is_64bit,
-                    language: Some(&self.config.goldberg_language),
-                    listen_port: None,
-                    no_local_save: self.config.goldberg_no_local_save,
-                    create_steam_appid_by_exe: self.config.create_steam_appid_by_exe,
-                    experimental: self.config.goldberg_experimental,
-                    ignore_steam_appid: self.config.goldberg_ignore_steam_appid,
-                    need_steam_interface: self.config.goldberg_need_steam_interface,
-                    use_nucleus_environment: self.config.use_nucleus_environment,
-                    custom_steam_api_dll_path: custom_steam_paths,
-                    handler_folder: handler_folder_path,
-                    experimental_steam_client: self.config.goldberg_experimental_steam_client,
-                    experimental_rename: self.config.goldberg_experimental_rename,
-                    orig_steam_dll_path: None,
-                    exe_name: Some(&self.config.executable_name),
-                    start_arguments: None,
-                };
-                let _ = SteamEmuTool::deploy_goldberg(&goldberg_opts);
-                if self.config.legacy.use_handler_steam_ids {
-                    let _ = SteamEmuTool::write_steam_id_and_account(
-                        &inst_folder,
-                        &nickname,
-                        self.steam_id_for_slot(slot_idx),
-                    );
+                    let nickname = format!("Player{}", slot_idx + 1);
+                    let handler_folder_path = self.config.handler_folder.as_deref().map(Path::new);
+                    let custom_steam_paths: Option<&[String]> =
+                        if let Some(ref custom) = self.config.custom_steam_api_dll_path {
+                            Some(custom.as_slice())
+                        } else {
+                            discovered_steam_paths
+                        };
+                    let goldberg_opts = nucleus_tools::steam_emu::GoldbergDeployOptions {
+                        instance_dir: &inst_folder,
+                        orig_game_dir: &self.game_dir,
+                        utils_dir: &utils_dir,
+                        steam_id,
+                        player_index: slot_idx,
+                        nickname: &nickname,
+                        is_64bit,
+                        language: Some(&self.config.goldberg_language),
+                        listen_port: None,
+                        no_local_save: self.config.goldberg_no_local_save,
+                        create_steam_appid_by_exe: self.config.create_steam_appid_by_exe,
+                        experimental: self.config.goldberg_experimental,
+                        ignore_steam_appid: self.config.goldberg_ignore_steam_appid,
+                        need_steam_interface: self.config.goldberg_need_steam_interface,
+                        use_nucleus_environment: self.config.use_nucleus_environment,
+                        custom_steam_api_dll_path: custom_steam_paths,
+                        handler_folder: handler_folder_path,
+                        experimental_steam_client: self.config.goldberg_experimental_steam_client,
+                        experimental_rename: self.config.goldberg_experimental_rename,
+                        orig_steam_dll_path: None,
+                        exe_name: Some(&self.config.executable_name),
+                        start_arguments: None,
+                    };
+                    let _ = SteamEmuTool::deploy_goldberg(&goldberg_opts);
+                    if self.config.legacy.use_handler_steam_ids {
+                        let _ = SteamEmuTool::write_steam_id_and_account(
+                            &inst_folder,
+                            &nickname,
+                            self.steam_id_for_slot(slot_idx),
+                        );
+                    }
                 }
-            }
 
-            if self.config.use_dev_reorder {
-                let visible_guid = &all_player_guids[slot_idx];
-                let _ = DevReorderTool::setup_dev_reorder(
-                    &inst_folder,
-                    visible_guid,
-                    &all_guids_refs,
-                    &utils_dir,
-                    is_64bit,
-                    true,
-                );
-                if inst_exe_dir != &inst_folder {
+                if self.config.use_dev_reorder {
+                    let visible_guid = &all_player_guids[slot_idx];
                     let _ = DevReorderTool::setup_dev_reorder(
-                        inst_exe_dir,
+                        &inst_folder,
                         visible_guid,
                         &all_guids_refs,
                         &utils_dir,
                         is_64bit,
                         true,
                     );
-                }
-                if let Some(ref custom_dlls) = self.config.dev_reorder_dlls {
-                    let arch_folder = if is_64bit { "x64" } else { "x86" };
-                    let src_dll = utils_dir
-                        .join("devreorder")
-                        .join(arch_folder)
-                        .join("dinput8.dll");
-                    if src_dll.exists() {
-                        for dll_name in custom_dlls {
-                            let _ = nucleus_common::file_util::copy_file(
-                                &src_dll,
-                                &inst_folder.join(dll_name),
-                                true,
-                            );
-                            if inst_exe_dir != &inst_folder {
+                    if inst_exe_dir != &inst_folder {
+                        let _ = DevReorderTool::setup_dev_reorder(
+                            inst_exe_dir,
+                            visible_guid,
+                            &all_guids_refs,
+                            &utils_dir,
+                            is_64bit,
+                            true,
+                        );
+                    }
+                    if let Some(ref custom_dlls) = self.config.dev_reorder_dlls {
+                        let arch_folder = if is_64bit { "x64" } else { "x86" };
+                        let src_dll = utils_dir
+                            .join("devreorder")
+                            .join(arch_folder)
+                            .join("dinput8.dll");
+                        if src_dll.exists() {
+                            for dll_name in custom_dlls {
                                 let _ = nucleus_common::file_util::copy_file(
                                     &src_dll,
-                                    &inst_exe_dir.join(dll_name),
+                                    &inst_folder.join(dll_name),
                                     true,
                                 );
+                                if inst_exe_dir != &inst_folder {
+                                    let _ = nucleus_common::file_util::copy_file(
+                                        &src_dll,
+                                        &inst_exe_dir.join(dll_name),
+                                        true,
+                                    );
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            if self.config.use_x360ce {
-                let dll_strings = self.config.x360ce_dll.as_deref().unwrap_or(&[]);
-                let dll_refs: Vec<&str> = dll_strings.iter().map(|s| s.as_str()).collect();
-                let player_guid = &all_player_guids[slot_idx];
-                let _ = X360ceTool::setup_x360ce(
-                    &inst_folder,
-                    player_guid,
-                    &utils_dir,
-                    is_64bit,
-                    &dll_refs,
-                    self.config.xbox_one_controller_fix,
-                );
-                if inst_exe_dir != &inst_folder {
+                if self.config.use_x360ce {
+                    let dll_strings = self.config.x360ce_dll.as_deref().unwrap_or(&[]);
+                    let dll_refs: Vec<&str> = dll_strings.iter().map(|s| s.as_str()).collect();
+                    let player_guid = &all_player_guids[slot_idx];
                     let _ = X360ceTool::setup_x360ce(
-                        inst_exe_dir,
+                        &inst_folder,
                         player_guid,
                         &utils_dir,
                         is_64bit,
                         &dll_refs,
                         self.config.xbox_one_controller_fix,
                     );
+                    if inst_exe_dir != &inst_folder {
+                        let _ = X360ceTool::setup_x360ce(
+                            inst_exe_dir,
+                            player_guid,
+                            &utils_dir,
+                            is_64bit,
+                            &dll_refs,
+                            self.config.xbox_one_controller_fix,
+                        );
+                    }
                 }
-            }
 
-            if self.config.use_sdl {
-                let path_strings = self.config.sdl_paths.as_deref().unwrap_or(&[]);
-                let path_refs: Vec<&str> = path_strings.iter().map(|s| s.as_str()).collect();
-                let _ = Sdl2Tool::setup_sdl2(
-                    &inst_folder,
-                    Some(slot_idx as i32),
-                    &[],
-                    &utils_dir,
-                    &path_refs,
-                );
-                if inst_exe_dir != &inst_folder {
+                if self.config.use_sdl {
+                    let path_strings = self.config.sdl_paths.as_deref().unwrap_or(&[]);
+                    let path_refs: Vec<&str> = path_strings.iter().map(|s| s.as_str()).collect();
                     let _ = Sdl2Tool::setup_sdl2(
-                        inst_exe_dir,
+                        &inst_folder,
                         Some(slot_idx as i32),
                         &[],
                         &utils_dir,
                         &path_refs,
                     );
+                    if inst_exe_dir != &inst_folder {
+                        let _ = Sdl2Tool::setup_sdl2(
+                            inst_exe_dir,
+                            Some(slot_idx as i32),
+                            &[],
+                            &utils_dir,
+                            &path_refs,
+                        );
+                    }
                 }
-            }
 
-            if self.config.use_xinput_plus {
-                let dll_strings = self.config.xinput_plus_dll.as_deref().unwrap_or(&[]);
-                let dll_refs: Vec<&str> = dll_strings.iter().map(|s| s.as_str()).collect();
-                let use_old_dll = self.config.legacy.xinput_plus_old_dll;
-                let write_ini = !self.config.legacy.xinput_plus_no_ini;
-                let _ = XInputPlusTool::setup_xinput_plus(
-                    &inst_folder,
-                    &utils_dir,
-                    is_64bit,
-                    &dll_refs,
-                    use_old_dll,
-                );
-                let ini_content = XInputPlusTool::generate_ini((slot_idx + 1) as u32);
-                if write_ini {
-                    let _ = nucleus_common::file_util::write_text_file(
-                        &inst_folder.join("XInputPlus.ini"),
-                        &ini_content,
-                    );
-                }
-                if inst_exe_dir != &inst_folder {
+                if self.config.use_xinput_plus {
+                    let dll_strings = self.config.xinput_plus_dll.as_deref().unwrap_or(&[]);
+                    let dll_refs: Vec<&str> = dll_strings.iter().map(|s| s.as_str()).collect();
+                    let use_old_dll = self.config.legacy.xinput_plus_old_dll;
+                    let write_ini = !self.config.legacy.xinput_plus_no_ini;
                     let _ = XInputPlusTool::setup_xinput_plus(
-                        inst_exe_dir,
+                        &inst_folder,
                         &utils_dir,
                         is_64bit,
                         &dll_refs,
                         use_old_dll,
                     );
+                    let ini_content = XInputPlusTool::generate_ini((slot_idx + 1) as u32);
                     if write_ini {
                         let _ = nucleus_common::file_util::write_text_file(
-                            &inst_exe_dir.join("XInputPlus.ini"),
+                            &inst_folder.join("XInputPlus.ini"),
                             &ini_content,
                         );
                     }
-                }
-            }
-
-            // HexEdit* properties. `HexEditExe` and `HexEditFile` hold one entry per player; the
-            // `All`/`Address` variants apply to every instance (or the one they name).
-            {
-                let legacy = &self.config.legacy;
-                let edits = crate::file_ops::HexEdits {
-                    exe: self.config.hex_edit_exe.as_deref().unwrap_or(&[]),
-                    all_exes: &legacy.hex_edit_all_exes,
-                    exe_address: &legacy.hex_edit_exe_address,
-                    file: &legacy.hex_edit_file,
-                    all_files: &legacy.hex_edit_all_files,
-                    file_address: &legacy.hex_edit_file_address,
-                };
-                if !edits.is_empty() {
-                    if inst_exe == self.exe_path {
-                        tracing::warn!(
-                            "Hex edits requested without an instanced copy of the game; the \
-                             installed executable is left untouched"
+                    if inst_exe_dir != &inst_folder {
+                        let _ = XInputPlusTool::setup_xinput_plus(
+                            inst_exe_dir,
+                            &utils_dir,
+                            is_64bit,
+                            &dll_refs,
+                            use_old_dll,
                         );
-                    } else {
-                        let applied = edits.apply(&inst_exe, &inst_folder, slot_idx);
-                        tracing::info!("Applied {applied} hex edit(s) for player {}", slot_idx + 1);
+                        if write_ini {
+                            let _ = nucleus_common::file_util::write_text_file(
+                                &inst_exe_dir.join("XInputPlus.ini"),
+                                &ini_content,
+                            );
+                        }
                     }
                 }
-            }
 
-            if let Some(ref hex_dlls) = self.config.hex_edit_dll_files {
-                for hex_entry in hex_dlls {
-                    let delim = if hex_entry.contains(':') { ':' } else { '|' };
-                    let parts: Vec<&str> = hex_entry.splitn(3, delim).collect();
-                    if parts.len() == 3 {
-                        let target = inst_folder.join(parts[0]);
-                        if target.exists() && inst_folder != self.game_dir {
-                            let find = parts[1].as_bytes().to_vec();
-                            let replace = parts[2].as_bytes().to_vec();
-                            if find.len() == replace.len() && find != replace {
-                                crate::file_ops::patch_detached(&target, |bytes| {
-                                    let mut changed = false;
-                                    while crate::file_ops::replace_first(bytes, &find, &replace) {
-                                        changed = true;
-                                    }
-                                    changed
-                                });
+                // HexEdit* properties. `HexEditExe` and `HexEditFile` hold one entry per player; the
+                // `All`/`Address` variants apply to every instance (or the one they name).
+                {
+                    let legacy = &self.config.legacy;
+                    let edits = crate::file_ops::HexEdits {
+                        exe: self.config.hex_edit_exe.as_deref().unwrap_or(&[]),
+                        all_exes: &legacy.hex_edit_all_exes,
+                        exe_address: &legacy.hex_edit_exe_address,
+                        file: &legacy.hex_edit_file,
+                        all_files: &legacy.hex_edit_all_files,
+                        file_address: &legacy.hex_edit_file_address,
+                    };
+                    if !edits.is_empty() {
+                        if inst_exe == self.exe_path {
+                            tracing::warn!(
+                                "Hex edits requested without an instanced copy of the game; the \
+                             installed executable is left untouched"
+                            );
+                        } else {
+                            let applied = edits.apply(&inst_exe, &inst_folder, slot_idx);
+                            tracing::info!(
+                                "Applied {applied} hex edit(s) for player {}",
+                                slot_idx + 1
+                            );
+                        }
+                    }
+                }
+
+                if let Some(ref hex_dlls) = self.config.hex_edit_dll_files {
+                    for hex_entry in hex_dlls {
+                        let delim = if hex_entry.contains(':') { ':' } else { '|' };
+                        let parts: Vec<&str> = hex_entry.splitn(3, delim).collect();
+                        if parts.len() == 3 {
+                            let target = inst_folder.join(parts[0]);
+                            if target.exists() && inst_folder != self.game_dir {
+                                let find = parts[1].as_bytes().to_vec();
+                                let replace = parts[2].as_bytes().to_vec();
+                                if find.len() == replace.len() && find != replace {
+                                    crate::file_ops::patch_detached(&target, |bytes| {
+                                        let mut changed = false;
+                                        while crate::file_ops::replace_first(bytes, &find, &replace)
+                                        {
+                                            changed = true;
+                                        }
+                                        changed
+                                    });
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            if !self.config.legacy.copy_custom_utils.is_empty() {
-                let copied = crate::file_ops::copy_custom_utils(
-                    &utils_dir,
-                    &inst_folder,
-                    &self.config.legacy.copy_custom_utils,
-                    slot_idx,
-                );
-                tracing::info!("Copied {copied} custom util file(s) for player {}", slot_idx + 1);
-            }
-
-            if self.config.legacy.use_dinput_blocker {
-                let arch_folder = if is_64bit { "x64" } else { "x86" };
-                let blocker = utils_dir
-                    .join("DInputBlocker")
-                    .join(arch_folder)
-                    .join("dinput8.dll");
-                if blocker.exists() {
-                    let _ = nucleus_common::file_util::copy_file(
-                        &blocker,
-                        &inst_exe_dir.join("dinput8.dll"),
-                        true,
+                if !self.config.legacy.copy_custom_utils.is_empty() {
+                    let copied = crate::file_ops::copy_custom_utils(
+                        &utils_dir,
+                        &inst_folder,
+                        &self.config.legacy.copy_custom_utils,
+                        slot_idx,
                     );
-                } else {
-                    tracing::warn!("UseDInputBlocker: {} not found", blocker.display());
+                    tracing::info!(
+                        "Copied {copied} custom util file(s) for player {}",
+                        slot_idx + 1
+                    );
                 }
-                let _ = nucleus_tools::dinput_blocker::DinputBlockerTool::setup_blocker(
-                    inst_exe_dir,
-                    true,
-                    &[],
-                );
-            }
 
-            } else {
-            let mut ctx = HandlerContext::new(slot_idx, format!("Player{}", slot_idx + 1));
-            ctx.instance_folder = inst_folder.to_string_lossy().to_string();
-            ctx.root_folder = inst_folder.to_string_lossy().to_string();
-            ctx.root_install_folder = self.game_dir.to_string_lossy().to_string();
-            ctx.orig_root_folder = self.game_dir.to_string_lossy().to_string();
-            ctx.exe_path = inst_exe.to_string_lossy().to_string();
-            ctx.start_arguments = self.config.start_arguments.clone();
-            ctx.handler_guid = self.config.guid.clone();
-            ctx.number_of_players = total_players;
-            ctx.layout = self.layout.clone();
-            ctx.options = self.options.clone();
-            ctx.local_ip = "127.0.0.1".to_string();
-            ctx.monitor_width = primary_screen.width;
-            ctx.monitor_height = primary_screen.height;
-            ctx.pos_x = split_bounds.x;
-            ctx.pos_y = split_bounds.y;
-            ctx.width = split_bounds.width;
-            ctx.height = split_bounds.height;
-            ctx.is_active = true;
-            ctx.arch = if is_64bit { "x64" } else { "x86" }.to_string();
-            ctx.is_fullscreen = split_bounds.width >= primary_screen.width
-                && split_bounds.height >= primary_screen.height;
-            ctx.orig_width = Some(primary_screen.width);
-            ctx.orig_height = Some(primary_screen.height);
-            ctx.player_steam_id = Some(self.steam_id_for_slot(slot_idx).to_string());
-            ctx.player_steam_ids = (0..guid_count)
-                .map(|i| self.steam_id_for_slot(i).to_string())
-                .collect();
-            ctx.nucleus_folder = Some(self.resolve_nucleus_root().to_string_lossy().to_string());
-            // `handler_folder` is the folder holding the handler script; its companion folder
-            // (`handlers/<script name>`) is what handlers copy from with `CopyScriptFolder`.
-            ctx.handlers_folder = self.config.handler_folder.clone();
-            ctx.script_folder = self
-                .config
-                .handler_path
-                .as_deref()
-                .map(|p| Path::new(p).with_extension(""))
-                .map(|p| p.to_string_lossy().to_string());
-            if !self.config.launcher_exe.is_empty() {
-                ctx.launcher_folder = Path::new(&self.config.launcher_exe)
-                    .parent()
-                    .filter(|p| !p.as_os_str().is_empty())
-                    .map(|p| inst_folder.join(p).to_string_lossy().to_string())
-                    .or_else(|| Some(inst_folder.to_string_lossy().to_string()));
-            }
-            ctx.symlink_files = self.config.legacy.symlink_files.clone();
-            ctx.user_profile_config_path = self.config.user_profile_config_path.clone();
-            ctx.user_profile_save_path = self.config.user_profile_save_path.clone();
-            ctx.documents_config_path = self.config.documents_config_path.clone();
-            ctx.documents_save_path = self.config.documents_save_path.clone();
-            ctx.num_keyboards = self
-                .player_device_assignments
-                .iter()
-                .take(guid_count)
-                .filter(|a| Self::is_keyboard_assignment(a))
-                .count();
-            ctx.num_controllers = guid_count.saturating_sub(ctx.num_keyboards);
-            ctx.has_keyboard_player = ctx.num_keyboards > 0;
-
-            Self::apply_device_assignment_to_ctx(&mut ctx, slot_idx, device_assignment);
-
-            // Replace the placeholder device IDs with the real raw-input handles when known.
-            let (kb_handle, mouse_handle) =
-                crate::proto_launch::raw_handles_for_assignment(device_assignment, &self.raw_devices);
-            if ctx.is_raw_keyboard && kb_handle != -1 {
-                ctx.raw_keyboard_guid = Some((kb_handle as u32).to_string());
-            }
-            if ctx.is_raw_mouse && mouse_handle != -1 {
-                ctx.raw_mouse_guid = Some((mouse_handle as u32).to_string());
-            }
-            if !self.config.legacy.use_manual_proto_controllers_setup {
-                let own = ctx.gamepad_id.max(0);
-                ctx.proto_controllers = if self.config.proto_input.multiple_proto_controllers {
-                    [own; 4]
-                } else {
-                    [own, 0, 0, 0]
-                };
-            }
-
-            ctx.using_nucleus_accounts = self.config.legacy.launch_as_different_users
-            || self.config.legacy.launch_as_different_users_alt;
-        self.collect_custom_values(&mut ctx, slot_idx);
-
-        // Execute Game.Play locally inside short-lived !Send ScriptEngine
-            if let Some(ref script) = self.script_source {
-                let mut engine = ScriptEngine::new()?;
-                let folder_path = self.config.handler_folder.as_deref().map(Path::new);
-
-                // Inject active JavaScript add-ons into global context before script evaluation
-                if let Some(ref mgr) = self.extension_manager {
-                    let addons_code = mgr.lock().get_combined_js_addons_code();
-                    if !addons_code.is_empty() {
-                        let _ = engine.execute(&addons_code);
-                    }
-                }
-                if let Some(ref ctrl) = self.debug_controller {
-                    ctrl.set_stage(nucleus_debug::protocol::PipelineStage::ScriptEvaluate);
-                    let file_id = if !self.config.executable_name.is_empty() {
-                        self.config.executable_name.clone()
+                if self.config.legacy.use_dinput_blocker {
+                    let arch_folder = if is_64bit { "x64" } else { "x86" };
+                    let blocker = utils_dir
+                        .join("DInputBlocker")
+                        .join(arch_folder)
+                        .join("dinput8.dll");
+                    if blocker.exists() {
+                        let _ = nucleus_common::file_util::copy_file(
+                            &blocker,
+                            &inst_exe_dir.join("dinput8.dll"),
+                            true,
+                        );
                     } else {
-                        "handler.js".to_string()
+                        tracing::warn!("UseDInputBlocker: {} not found", blocker.display());
+                    }
+                    let _ = nucleus_tools::dinput_blocker::DinputBlockerTool::setup_blocker(
+                        inst_exe_dir,
+                        true,
+                        &[],
+                    );
+                }
+            } else {
+                let mut ctx = HandlerContext::new(slot_idx, format!("Player{}", slot_idx + 1));
+                ctx.instance_folder = inst_folder.to_string_lossy().to_string();
+                ctx.root_folder = inst_folder.to_string_lossy().to_string();
+                ctx.root_install_folder = self.game_dir.to_string_lossy().to_string();
+                ctx.orig_root_folder = self.game_dir.to_string_lossy().to_string();
+                ctx.exe_path = inst_exe.to_string_lossy().to_string();
+                ctx.start_arguments = self.config.start_arguments.clone();
+                ctx.handler_guid = self.config.guid.clone();
+                ctx.number_of_players = total_players;
+                ctx.layout = self.layout.clone();
+                ctx.options = self.options.clone();
+                ctx.local_ip = "127.0.0.1".to_string();
+                ctx.monitor_width = primary_screen.width;
+                ctx.monitor_height = primary_screen.height;
+                ctx.pos_x = split_bounds.x;
+                ctx.pos_y = split_bounds.y;
+                ctx.width = split_bounds.width;
+                ctx.height = split_bounds.height;
+                ctx.is_active = true;
+                ctx.arch = if is_64bit { "x64" } else { "x86" }.to_string();
+                ctx.is_fullscreen = split_bounds.width >= primary_screen.width
+                    && split_bounds.height >= primary_screen.height;
+                ctx.orig_width = Some(primary_screen.width);
+                ctx.orig_height = Some(primary_screen.height);
+                ctx.player_steam_id = Some(self.steam_id_for_slot(slot_idx).to_string());
+                ctx.player_steam_ids = (0..guid_count)
+                    .map(|i| self.steam_id_for_slot(i).to_string())
+                    .collect();
+                ctx.nucleus_folder =
+                    Some(self.resolve_nucleus_root().to_string_lossy().to_string());
+                // `handler_folder` is the folder holding the handler script; its companion folder
+                // (`handlers/<script name>`) is what handlers copy from with `CopyScriptFolder`.
+                ctx.handlers_folder = self.config.handler_folder.clone();
+                ctx.script_folder = self
+                    .config
+                    .handler_path
+                    .as_deref()
+                    .map(|p| Path::new(p).with_extension(""))
+                    .map(|p| p.to_string_lossy().to_string());
+                if !self.config.launcher_exe.is_empty() {
+                    ctx.launcher_folder = Path::new(&self.config.launcher_exe)
+                        .parent()
+                        .filter(|p| !p.as_os_str().is_empty())
+                        .map(|p| inst_folder.join(p).to_string_lossy().to_string())
+                        .or_else(|| Some(inst_folder.to_string_lossy().to_string()));
+                }
+                ctx.symlink_files = self.config.legacy.symlink_files.clone();
+                ctx.user_profile_config_path = self.config.user_profile_config_path.clone();
+                ctx.user_profile_save_path = self.config.user_profile_save_path.clone();
+                ctx.documents_config_path = self.config.documents_config_path.clone();
+                ctx.documents_save_path = self.config.documents_save_path.clone();
+                ctx.num_keyboards = self
+                    .player_device_assignments
+                    .iter()
+                    .take(guid_count)
+                    .filter(|a| Self::is_keyboard_assignment(a))
+                    .count();
+                ctx.num_controllers = guid_count.saturating_sub(ctx.num_keyboards);
+                ctx.has_keyboard_player = ctx.num_keyboards > 0;
+
+                Self::apply_device_assignment_to_ctx(&mut ctx, slot_idx, device_assignment);
+
+                // Replace the placeholder device IDs with the real raw-input handles when known.
+                let (kb_handle, mouse_handle) = crate::proto_launch::raw_handles_for_assignment(
+                    device_assignment,
+                    &self.raw_devices,
+                );
+                if ctx.is_raw_keyboard && kb_handle != -1 {
+                    ctx.raw_keyboard_guid = Some((kb_handle as u32).to_string());
+                }
+                if ctx.is_raw_mouse && mouse_handle != -1 {
+                    ctx.raw_mouse_guid = Some((mouse_handle as u32).to_string());
+                }
+                if !self.config.legacy.use_manual_proto_controllers_setup {
+                    let own = ctx.gamepad_id.max(0);
+                    ctx.proto_controllers = if self.config.proto_input.multiple_proto_controllers {
+                        [own; 4]
+                    } else {
+                        [own, 0, 0, 0]
                     };
-                    engine.execute_play_with_debugger(&file_id, script, folder_path, &mut ctx, ctrl)?;
-                } else {
-                    let _ = engine.load_handler_script_with_folder(script, folder_path)?;
-                    engine.execute_play(&mut ctx)?;
                 }
 
-                // Handlers often define their input-lock callbacks inside Game.Play. Record what
-                // they ask for now; it is replayed on the live instances when the event happens.
-                let players = self.proto_player_list(total_players, &ctx);
-                let mut recordings = Vec::new();
-                for which in [
-                    nucleus_script::proto_script::ProtoCallback::InputLocked,
-                    nucleus_script::proto_script::ProtoCallback::InputUnlocked,
-                    nucleus_script::proto_script::ProtoCallback::FinishedSetup,
-                ] {
-                    match engine.run_proto_callback(which, &players) {
-                        Ok(Some(calls)) => recordings.push((which, calls)),
-                        Ok(None) => {}
-                        Err(e) => tracing::warn!("Handler {:?} callback failed: {}", which, e),
+                ctx.using_nucleus_accounts = self.config.legacy.launch_as_different_users
+                    || self.config.legacy.launch_as_different_users_alt;
+                self.collect_custom_values(&mut ctx, slot_idx);
+
+                // Execute Game.Play locally inside short-lived !Send ScriptEngine
+                if let Some(ref script) = self.script_source {
+                    let mut engine = ScriptEngine::new()?;
+                    let folder_path = self.config.handler_folder.as_deref().map(Path::new);
+
+                    // Inject active JavaScript add-ons into global context before script evaluation
+                    if let Some(ref mgr) = self.extension_manager {
+                        let addons_code = mgr.lock().get_combined_js_addons_code();
+                        if !addons_code.is_empty() {
+                            let _ = engine.execute(&addons_code);
+                        }
                     }
+                    if let Some(ref ctrl) = self.debug_controller {
+                        ctrl.set_stage(nucleus_debug::protocol::PipelineStage::ScriptEvaluate);
+                        let file_id = if !self.config.executable_name.is_empty() {
+                            self.config.executable_name.clone()
+                        } else {
+                            "handler.js".to_string()
+                        };
+                        engine.execute_play_with_debugger(
+                            &file_id,
+                            script,
+                            folder_path,
+                            &mut ctx,
+                            ctrl,
+                        )?;
+                    } else {
+                        let _ = engine.load_handler_script_with_folder(script, folder_path)?;
+                        engine.execute_play(&mut ctx)?;
+                    }
+
+                    // Handlers often define their input-lock callbacks inside Game.Play. Record what
+                    // they ask for now; it is replayed on the live instances when the event happens.
+                    let players = self.proto_player_list(total_players, &ctx);
+                    let mut recordings = Vec::new();
+                    for which in [
+                        nucleus_script::proto_script::ProtoCallback::InputLocked,
+                        nucleus_script::proto_script::ProtoCallback::InputUnlocked,
+                        nucleus_script::proto_script::ProtoCallback::FinishedSetup,
+                    ] {
+                        match engine.run_proto_callback(which, &players) {
+                            Ok(Some(calls)) => recordings.push((which, calls)),
+                            Ok(None) => {}
+                            Err(e) => tracing::warn!("Handler {:?} callback failed: {}", which, e),
+                        }
+                    }
+                    self.proto_recordings = recordings;
                 }
-                self.proto_recordings = recordings;
-            }
 
                 staged_ctx = Some(ctx);
             }
@@ -1756,7 +1798,10 @@ impl IGameHandler for GameHandler {
             self.raw_devices = nucleus_input::enumerate_raw_devices();
             tracing::info!(
                 "Raw input devices: {} keyboard(s), {} mouse/mice",
-                nucleus_input::device_count(&self.raw_devices, nucleus_input::RawDeviceKind::Keyboard),
+                nucleus_input::device_count(
+                    &self.raw_devices,
+                    nucleus_input::RawDeviceKind::Keyboard
+                ),
                 nucleus_input::device_count(&self.raw_devices, nucleus_input::RawDeviceKind::Mouse)
             );
         }
@@ -2048,7 +2093,8 @@ impl IGameHandler for GameHandler {
         }
 
         let has_startup_dlls = self.config.injected_dlls.iter().any(|d| {
-            d.target_instances.applies_to(player_index, self.contexts.len())
+            d.target_instances
+                .applies_to(player_index, self.contexts.len())
                 && d.timing == nucleus_common::dll_injection::InjectionTiming::AtStartupSuspended
         });
 
@@ -2084,7 +2130,9 @@ impl IGameHandler for GameHandler {
                 Err(e) => {
                     tracing::error!("{e}");
                     if let Some(ref platform) = self.platform {
-                        platform.osd_manager().show(4000, "ProtoInput DLLs not found");
+                        platform
+                            .osd_manager()
+                            .show(4000, "ProtoInput DLLs not found");
                     }
                     return Err(e);
                 }
@@ -2187,20 +2235,37 @@ impl IGameHandler for GameHandler {
 
             // Inject AtStartupSuspended DLLs
             for dll_cfg in &self.config.injected_dlls {
-                if dll_cfg.target_instances.applies_to(player_index, self.contexts.len())
-                    && dll_cfg.timing == nucleus_common::dll_injection::InjectionTiming::AtStartupSuspended
+                if dll_cfg
+                    .target_instances
+                    .applies_to(player_index, self.contexts.len())
+                    && dll_cfg.timing
+                        == nucleus_common::dll_injection::InjectionTiming::AtStartupSuspended
                 {
                     let resolved_cfg = self.resolve_dll_path(dll_cfg, player_index);
-                    match nucleus_hook::injector::DllInjector::inject_advanced(spawned_pid, &resolved_cfg) {
+                    match nucleus_hook::injector::DllInjector::inject_advanced(
+                        spawned_pid,
+                        &resolved_cfg,
+                    ) {
                         Ok(h) => {
                             tracing::info!(
                                 "Injected startup DLL {:?} into PID {} (handle {:#x})",
-                                resolved_cfg.path, spawned_pid, h
+                                resolved_cfg.path,
+                                spawned_pid,
+                                h
                             );
-                            self.injected_modules.push((spawned_pid, h, resolved_cfg.eject_on_close));
+                            self.injected_modules.push((
+                                spawned_pid,
+                                h,
+                                resolved_cfg.eject_on_close,
+                            ));
                         }
                         Err(e) => {
-                            tracing::error!("Failed to inject startup DLL {:?} into PID {}: {}", resolved_cfg.path, spawned_pid, e);
+                            tracing::error!(
+                                "Failed to inject startup DLL {:?} into PID {}: {}",
+                                resolved_cfg.path,
+                                spawned_pid,
+                                e
+                            );
                             if resolved_cfg.required {
                                 let _ = p_mgr.kill_process(spawned_pid);
                                 return Err(e);
@@ -2271,7 +2336,9 @@ impl IGameHandler for GameHandler {
 
         // Inject PostStartup DLLs
         for dll_cfg in &self.config.injected_dlls {
-            if dll_cfg.target_instances.applies_to(player_index, self.contexts.len())
+            if dll_cfg
+                .target_instances
+                .applies_to(player_index, self.contexts.len())
                 && dll_cfg.timing == nucleus_common::dll_injection::InjectionTiming::PostStartup
             {
                 let resolved_cfg = self.resolve_dll_path(dll_cfg, player_index);
@@ -2279,12 +2346,20 @@ impl IGameHandler for GameHandler {
                     Ok(h) => {
                         tracing::info!(
                             "Injected post-startup DLL {:?} into PID {} (handle {:#x})",
-                            resolved_cfg.path, pid, h
+                            resolved_cfg.path,
+                            pid,
+                            h
                         );
-                        self.injected_modules.push((pid, h, resolved_cfg.eject_on_close));
+                        self.injected_modules
+                            .push((pid, h, resolved_cfg.eject_on_close));
                     }
                     Err(e) => {
-                        tracing::error!("Failed to inject post-startup DLL {:?} into PID {}: {}", resolved_cfg.path, pid, e);
+                        tracing::error!(
+                            "Failed to inject post-startup DLL {:?} into PID {}: {}",
+                            resolved_cfg.path,
+                            pid,
+                            e
+                        );
                         if resolved_cfg.required {
                             let _ = ProcessLauncher::terminate(pid);
                             return Err(e);
@@ -2536,24 +2611,38 @@ impl IGameHandler for GameHandler {
 
                 // Trigger OnWindowCreated and AfterDelayMs DLL injections
                 for dll_cfg in &self.config.injected_dlls {
-                    if !dll_cfg.target_instances.applies_to(player_index, self.contexts.len()) {
+                    if !dll_cfg
+                        .target_instances
+                        .applies_to(player_index, self.contexts.len())
+                    {
                         continue;
                     }
                     match dll_cfg.timing {
                         nucleus_common::dll_injection::InjectionTiming::OnWindowCreated => {
                             let resolved_cfg = self.resolve_dll_path(dll_cfg, player_index);
-                            match nucleus_hook::injector::DllInjector::inject_advanced(pid, &resolved_cfg) {
+                            match nucleus_hook::injector::DllInjector::inject_advanced(
+                                pid,
+                                &resolved_cfg,
+                            ) {
                                 Ok(h) => {
                                     tracing::info!(
                                         "Injected on-window DLL {:?} into PID {} (handle {:#x})",
-                                        resolved_cfg.path, pid, h
+                                        resolved_cfg.path,
+                                        pid,
+                                        h
                                     );
-                                    self.injected_modules.push((pid, h, resolved_cfg.eject_on_close));
+                                    self.injected_modules.push((
+                                        pid,
+                                        h,
+                                        resolved_cfg.eject_on_close,
+                                    ));
                                 }
                                 Err(e) => {
                                     tracing::error!(
                                         "Failed to inject on-window DLL {:?} into PID {}: {}",
-                                        resolved_cfg.path, pid, e
+                                        resolved_cfg.path,
+                                        pid,
+                                        e
                                     );
                                     if resolved_cfg.required {
                                         return Err(e);
@@ -2568,7 +2657,10 @@ impl IGameHandler for GameHandler {
                                 if delay_ms > 0 {
                                     std::thread::sleep(std::time::Duration::from_millis(delay_ms));
                                 }
-                                let _ = nucleus_hook::injector::DllInjector::inject_advanced(pid, &resolved_cfg);
+                                let _ = nucleus_hook::injector::DllInjector::inject_advanced(
+                                    pid,
+                                    &resolved_cfg,
+                                );
                             });
                         }
                         _ => {}

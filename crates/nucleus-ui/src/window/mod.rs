@@ -386,7 +386,6 @@ impl MainWindow {
         self
     }
 
-
     /// Sets explicit detected hardware `DeviceItem` instances.
     pub fn with_device_items(mut self, devices: Vec<DeviceItem>) -> Self {
         self.detected_devices = devices.len();
@@ -400,7 +399,6 @@ impl MainWindow {
         self.hub_packages = packages;
         self
     }
-
 
     /// Replaces the entire callback builder struct on MainWindow.
     pub fn with_callbacks(mut self, callbacks: MainWindowCallbacks) -> Self {
@@ -885,7 +883,6 @@ impl MainWindow {
         self
     }
 
-
     /// Renders the client-side decorations (CSD) title bar with icon, title, drag handling, and window controls.
     fn render_title_bar(&self, _window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         #[cfg(target_os = "windows")]
@@ -973,7 +970,8 @@ impl MainWindow {
     /// Renders the modal dialog for inspecting handler or Hub package details with Markdown support.
     fn render_details_modal(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         if let Some(ref pkg) = self.inspecting_hub_package {
-            let is_installed = pkg.is_installed && self.is_handler_or_pkg_installed(&pkg.id, &pkg.game_name);
+            let is_installed =
+                pkg.is_installed && self.is_handler_or_pkg_installed(&pkg.id, &pkg.game_name);
             let install_progress = self.installing_handlers.get(&pkg.id).copied();
             let has_extra_like = self.hub_detail_extra_likes.contains(&pkg.id);
 
@@ -994,7 +992,6 @@ impl MainWindow {
             None
         }
     }
-
 }
 
 impl Render for MainWindow {
@@ -1657,7 +1654,6 @@ fn parse_osd_color(color_str: &str) -> Hsla {
     }
     rgb(0xffffff).into()
 }
-
 
 mod couch_actions;
 mod desktop_actions;

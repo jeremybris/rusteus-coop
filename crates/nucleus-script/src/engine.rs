@@ -39,9 +39,9 @@ impl ScriptEngine {
     ) -> NucleusResult<()> {
         self.inject_context(ctx)?;
 
-        let _ = self.context.eval(Source::from_bytes(
-            crate::proto_script::PER_PLAYER_PRELUDE,
-        ));
+        let _ = self
+            .context
+            .eval(Source::from_bytes(crate::proto_script::PER_PLAYER_PRELUDE));
 
         // The original Context mirrors every Game setting (Context.SymlinkExe, Context.Hook, ...).
         let _ = self.context.eval(Source::from_bytes(
@@ -944,7 +944,8 @@ impl ScriptEngine {
                                 ] {
                                     if let Ok(val) = opts.get(JsString::from(prop), ctx) {
                                         if !val.is_undefined() {
-                                            let _ = dll_obj.set(JsString::from(prop), val, false, ctx);
+                                            let _ =
+                                                dll_obj.set(JsString::from(prop), val, false, ctx);
                                         }
                                     }
                                 }
@@ -1537,12 +1538,18 @@ impl ScriptEngine {
         extract_string_array!(peerparty_services, "PeerPartyServices");
 
         if config.use_peerparty {
-            let mut pp_dll = nucleus_common::dll_injection::DllInjectionConfig::new("utils/PeerParty/x64/peerparty_hook.dll");
+            let mut pp_dll = nucleus_common::dll_injection::DllInjectionConfig::new(
+                "utils/PeerParty/x64/peerparty_hook.dll",
+            );
             pp_dll.timing = nucleus_common::dll_injection::InjectionTiming::AtStartupSuspended;
             pp_dll.method = nucleus_common::dll_injection::InjectionMethod::QueueUserApc;
             pp_dll.architecture = nucleus_common::dll_injection::TargetArchitecture::Auto;
             pp_dll.required = true;
-            if !config.injected_dlls.iter().any(|d| d.path.contains("peerparty_hook")) {
+            if !config
+                .injected_dlls
+                .iter()
+                .any(|d| d.path.contains("peerparty_hook"))
+            {
                 config.injected_dlls.push(pp_dll);
             }
         }
@@ -1725,7 +1732,9 @@ impl ScriptEngine {
                 for i in 0..len {
                     if let Ok(item_val) = dlls_arr.get(i, &mut self.context) {
                         if let Some(item_obj) = item_val.as_object() {
-                            let path = if let Ok(v) = item_obj.get(JsString::from("Path"), &mut self.context) {
+                            let path = if let Ok(v) =
+                                item_obj.get(JsString::from("Path"), &mut self.context)
+                            {
                                 if let Some(s) = v.as_string() {
                                     s.to_std_string_escaped()
                                 } else {
@@ -1739,38 +1748,49 @@ impl ScriptEngine {
                                 continue;
                             }
 
-                            let mut dll_config = nucleus_common::dll_injection::DllInjectionConfig::new(path);
+                            let mut dll_config =
+                                nucleus_common::dll_injection::DllInjectionConfig::new(path);
 
-                            if let Ok(v) = item_obj.get(JsString::from("Timing"), &mut self.context) {
+                            if let Ok(v) = item_obj.get(JsString::from("Timing"), &mut self.context)
+                            {
                                 if let Some(s) = v.as_string() {
                                     let t_str = s.to_std_string_escaped().to_lowercase();
-                                    if t_str.contains("startupsuspended") || t_str.contains("suspended") {
+                                    if t_str.contains("startupsuspended")
+                                        || t_str.contains("suspended")
+                                    {
                                         dll_config.timing = nucleus_common::dll_injection::InjectionTiming::AtStartupSuspended;
                                     } else if t_str.contains("window") {
                                         dll_config.timing = nucleus_common::dll_injection::InjectionTiming::OnWindowCreated;
                                     } else if t_str.contains("delay") {
                                         dll_config.timing = nucleus_common::dll_injection::InjectionTiming::AfterDelayMs(dll_config.delay_ms);
                                     } else if t_str.contains("manual") {
-                                        dll_config.timing = nucleus_common::dll_injection::InjectionTiming::Manual;
+                                        dll_config.timing =
+                                            nucleus_common::dll_injection::InjectionTiming::Manual;
                                     } else {
                                         dll_config.timing = nucleus_common::dll_injection::InjectionTiming::PostStartup;
                                     }
                                 }
                             }
 
-                            if let Ok(v) = item_obj.get(JsString::from("DelayMs"), &mut self.context) {
+                            if let Ok(v) =
+                                item_obj.get(JsString::from("DelayMs"), &mut self.context)
+                            {
                                 if let Some(n) = v.as_number() {
                                     dll_config.delay_ms = n.max(0.0) as u64;
                                 }
                             }
 
-                            if let Ok(v) = item_obj.get(JsString::from("Required"), &mut self.context) {
+                            if let Ok(v) =
+                                item_obj.get(JsString::from("Required"), &mut self.context)
+                            {
                                 if let Some(b) = v.as_boolean() {
                                     dll_config.required = b;
                                 }
                             }
 
-                            if let Ok(v) = item_obj.get(JsString::from("ExportName"), &mut self.context) {
+                            if let Ok(v) =
+                                item_obj.get(JsString::from("ExportName"), &mut self.context)
+                            {
                                 if let Some(s) = v.as_string() {
                                     let export_str = s.to_std_string_escaped();
                                     if !export_str.is_empty() {
@@ -1779,26 +1799,34 @@ impl ScriptEngine {
                                 }
                             }
 
-                            if let Ok(v) = item_obj.get(JsString::from("ExportArgument"), &mut self.context) {
+                            if let Ok(v) =
+                                item_obj.get(JsString::from("ExportArgument"), &mut self.context)
+                            {
                                 if let Some(s) = v.as_string() {
                                     dll_config.export_argument = Some(s.to_std_string_escaped());
                                 }
                             }
 
-                            if let Ok(v) = item_obj.get(JsString::from("IpcChannel"), &mut self.context) {
+                            if let Ok(v) =
+                                item_obj.get(JsString::from("IpcChannel"), &mut self.context)
+                            {
                                 if let Some(s) = v.as_string() {
                                     let ipc_str = s.to_std_string_escaped().to_lowercase();
                                     if ipc_str.contains("pipe") {
                                         dll_config.ipc_channel = nucleus_common::dll_injection::IpcChannelKind::NamedPipe;
-                                    } else if ipc_str.contains("shared") || ipc_str.contains("shm") {
+                                    } else if ipc_str.contains("shared") || ipc_str.contains("shm")
+                                    {
                                         dll_config.ipc_channel = nucleus_common::dll_injection::IpcChannelKind::SharedMemory;
                                     } else {
-                                        dll_config.ipc_channel = nucleus_common::dll_injection::IpcChannelKind::None;
+                                        dll_config.ipc_channel =
+                                            nucleus_common::dll_injection::IpcChannelKind::None;
                                     }
                                 }
                             }
 
-                            if let Ok(v) = item_obj.get(JsString::from("PipeName"), &mut self.context) {
+                            if let Ok(v) =
+                                item_obj.get(JsString::from("PipeName"), &mut self.context)
+                            {
                                 if let Some(s) = v.as_string() {
                                     let p = s.to_std_string_escaped();
                                     if !p.is_empty() {
@@ -1807,15 +1835,20 @@ impl ScriptEngine {
                                 }
                             }
 
-                            if let Ok(v) = item_obj.get(JsString::from("Architecture"), &mut self.context) {
+                            if let Ok(v) =
+                                item_obj.get(JsString::from("Architecture"), &mut self.context)
+                            {
                                 if let Some(s) = v.as_string() {
                                     let arch_str = s.to_std_string_escaped().to_lowercase();
                                     if arch_str.contains("64") {
-                                        dll_config.architecture = nucleus_common::dll_injection::TargetArchitecture::X64;
+                                        dll_config.architecture =
+                                            nucleus_common::dll_injection::TargetArchitecture::X64;
                                     } else if arch_str.contains("86") || arch_str.contains("32") {
-                                        dll_config.architecture = nucleus_common::dll_injection::TargetArchitecture::X86;
+                                        dll_config.architecture =
+                                            nucleus_common::dll_injection::TargetArchitecture::X86;
                                     } else {
-                                        dll_config.architecture = nucleus_common::dll_injection::TargetArchitecture::Auto;
+                                        dll_config.architecture =
+                                            nucleus_common::dll_injection::TargetArchitecture::Auto;
                                     }
                                 }
                             }

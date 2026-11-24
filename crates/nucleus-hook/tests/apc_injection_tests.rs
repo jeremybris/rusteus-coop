@@ -1,12 +1,15 @@
 //! Unit test verifying ToolHelp thread discovery and QueueUserApc configuration.
 
-use nucleus_common::dll_injection::{DllInjectionConfig, InjectionMethod, InjectionTiming, TargetArchitecture};
+use nucleus_common::dll_injection::{
+    DllInjectionConfig, InjectionMethod, InjectionTiming, TargetArchitecture,
+};
 use nucleus_hook::injector::DllInjector;
 
 #[test]
 fn test_find_current_process_primary_thread() {
     let current_pid = std::process::id();
-    let tid = DllInjector::find_primary_thread_id(current_pid).expect("failed to find thread for current process");
+    let tid = DllInjector::find_primary_thread_id(current_pid)
+        .expect("failed to find thread for current process");
     assert!(tid > 0);
 }
 

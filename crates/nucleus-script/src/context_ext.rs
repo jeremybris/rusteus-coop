@@ -1224,9 +1224,18 @@ pub fn install(
         );
     }
     for (key, values) in [
-        ("CustomUserGeneralValues", &handler_ctx.custom_user_general_values),
-        ("CustomUserPlayerValues", &handler_ctx.custom_user_player_values),
-        ("CustomUserInstanceValues", &handler_ctx.custom_user_instance_values),
+        (
+            "CustomUserGeneralValues",
+            &handler_ctx.custom_user_general_values,
+        ),
+        (
+            "CustomUserPlayerValues",
+            &handler_ctx.custom_user_player_values,
+        ),
+        (
+            "CustomUserInstanceValues",
+            &handler_ctx.custom_user_instance_values,
+        ),
     ] {
         let arr = js_string_array(values, context);
         set!(key, arr);

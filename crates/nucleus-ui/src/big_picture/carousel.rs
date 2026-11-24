@@ -471,9 +471,7 @@ pub fn render_big_picture_view(
                     BigPictureScreen::CouchHub => {
                         crate::big_picture::render_couch_hub_view(win, cx)
                     }
-                    BigPictureScreen::Sessions => {
-                        crate::big_picture::render_sessions_view(win, cx)
-                    }
+                    BigPictureScreen::Sessions => crate::big_picture::render_sessions_view(win, cx),
                     BigPictureScreen::Settings => {
                         crate::big_picture::render_big_picture_settings_view(win, cx)
                     }
@@ -600,16 +598,11 @@ fn render_big_picture_header(win: &MainWindow, cx: &mut Context<MainWindow>) -> 
                         .flex()
                         .items_center()
                         .gap_2()
-                        .child(
-                            div()
-                                .size(px(7.0))
-                                .rounded_full()
-                                .bg(if dev_count > 0 {
-                                    theme::accent()
-                                } else {
-                                    theme::text_muted()
-                                }),
-                        )
+                        .child(div().size(px(7.0)).rounded_full().bg(if dev_count > 0 {
+                            theme::accent()
+                        } else {
+                            theme::text_muted()
+                        }))
                         .child(
                             div()
                                 .text_xs()
@@ -718,17 +711,11 @@ fn render_universal_header_tab(
                 .child(label),
         )
         // Emerald underline pill when active
-        .child(
-            div()
-                .h(px(2.5))
-                .w_full()
-                .rounded_full()
-                .bg(if is_active {
-                    theme::accent()
-                } else {
-                    gpui::transparent_black()
-                }),
-        )
+        .child(div().h(px(2.5)).w_full().rounded_full().bg(if is_active {
+            theme::accent()
+        } else {
+            gpui::transparent_black()
+        }))
         .into_any_element()
 }
 
@@ -997,7 +984,8 @@ pub fn render_carousel_view(win: &MainWindow, cx: &mut Context<MainWindow>) -> A
                         .children(visible_indices.iter().map(|&idx| {
                             let handler = filtered_handlers[idx];
                             let is_selected = idx == sel_idx;
-                            let is_focus_card = win.carousel_state.focus_zone == CarouselFocusZone::Cards;
+                            let is_focus_card =
+                                win.carousel_state.focus_zone == CarouselFocusZone::Cards;
                             render_carousel_card(handler, idx, is_selected, is_focus_card, cx)
                         })),
                 )
@@ -1168,8 +1156,7 @@ fn render_carousel_hero_banner(
                                 .font_weight(FontWeight::MEDIUM)
                                 .text_sm()
                                 .hover(|s| {
-                                    s.bg(theme::bg_hover())
-                                        .border_color(theme::border_color())
+                                    s.bg(theme::bg_hover()).border_color(theme::border_color())
                                 })
                                 .on_click(cx.listener(move |this, _, _, cx| {
                                     this.selected_game = Some(game_name_details.clone());
@@ -1194,7 +1181,10 @@ fn render_carousel_action_bar(
         .selected_index
         .min(total_matching.saturating_sub(1));
     let has_search = !win.carousel_state.search_query.is_empty();
-    let is_search_focused = matches!(win.carousel_state.focus_zone, CarouselFocusZone::HeroBanner(2));
+    let is_search_focused = matches!(
+        win.carousel_state.focus_zone,
+        CarouselFocusZone::HeroBanner(2)
+    );
     let is_filtered = win.carousel_state.filter_mode != CarouselFilterMode::All;
     let is_sorted = win.carousel_state.sort_mode != CarouselSortMode::Alphabetical;
 
@@ -1246,11 +1236,16 @@ fn render_carousel_action_bar(
                         } else {
                             theme::border_subtle()
                         })
-                        .text_color(if is_search_focused || has_search || win.carousel_state.search_input_open {
-                            theme::accent()
-                        } else {
-                            theme::text_primary()
-                        })
+                        .text_color(
+                            if is_search_focused
+                                || has_search
+                                || win.carousel_state.search_input_open
+                            {
+                                theme::accent()
+                            } else {
+                                theme::text_primary()
+                            },
+                        )
                         .hover(|s| s.bg(theme::bg_hover()).border_color(theme::border_color()))
                         .on_mouse_down(MouseButton::Left, |_, _, cx| {
                             cx.stop_propagation();
@@ -1894,10 +1889,7 @@ fn render_carousel_card(
 }
 
 fn render_couch_prompt_bar(screen: BigPictureScreen) -> AnyElement {
-    let mut left_prompts = div()
-        .flex()
-        .items_center()
-        .gap_6();
+    let mut left_prompts = div().flex().items_center().gap_6();
 
     match screen {
         BigPictureScreen::CouchSetup => {

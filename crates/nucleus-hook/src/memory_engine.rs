@@ -5,8 +5,8 @@
 
 use nucleus_common::error::{NucleusError, NucleusResult};
 use std::ffi::c_void;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::RwLock;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 #[cfg(windows)]
 use crate::privilege::open_target_process;
@@ -16,9 +16,9 @@ use windows::Win32::Foundation::CloseHandle;
 use windows::Win32::System::Diagnostics::Debug::{ReadProcessMemory, WriteProcessMemory};
 #[cfg(windows)]
 use windows::Win32::System::Memory::{
-    VirtualProtectEx, VirtualQueryEx, MEMORY_BASIC_INFORMATION, MEM_COMMIT,
-    PAGE_EXECUTE_READ, PAGE_EXECUTE_READWRITE, PAGE_GUARD, PAGE_NOACCESS,
-    PAGE_PROTECTION_FLAGS, PAGE_READONLY, PAGE_READWRITE,
+    MEM_COMMIT, MEMORY_BASIC_INFORMATION, PAGE_EXECUTE_READ, PAGE_EXECUTE_READWRITE, PAGE_GUARD,
+    PAGE_NOACCESS, PAGE_PROTECTION_FLAGS, PAGE_READONLY, PAGE_READWRITE, VirtualProtectEx,
+    VirtualQueryEx,
 };
 
 /// A frozen memory slot for periodic reinforcement of locked values.
@@ -45,9 +45,7 @@ impl MemoryEngine {
     pub fn read_value<T: Copy>(pid: u32, address: usize) -> NucleusResult<T> {
         let size = std::mem::size_of::<T>();
         let mut value = std::mem::MaybeUninit::<T>::uninit();
-        let buffer = unsafe {
-            std::slice::from_raw_parts_mut(value.as_mut_ptr() as *mut u8, size)
-        };
+        let buffer = unsafe { std::slice::from_raw_parts_mut(value.as_mut_ptr() as *mut u8, size) };
 
         Self::read_bytes(pid, address, buffer)?;
         Ok(unsafe { value.assume_init() })
@@ -56,9 +54,7 @@ impl MemoryEngine {
     /// Writes a primitive value to target process memory with auto-unprotect if page is read-only.
     pub fn write_value<T: Copy>(pid: u32, address: usize, value: &T) -> NucleusResult<()> {
         let size = std::mem::size_of::<T>();
-        let slice = unsafe {
-            std::slice::from_raw_parts(value as *const T as *const u8, size)
-        };
+        let slice = unsafe { std::slice::from_raw_parts(value as *const T as *const u8, size) };
         Self::write_bytes(pid, address, slice)?;
         Ok(())
     }
@@ -84,7 +80,9 @@ impl MemoryEngine {
                 )
             };
 
-            unsafe { let _ = CloseHandle(handle); }
+            unsafe {
+                let _ = CloseHandle(handle);
+            }
 
             if success.is_err() || bytes_read == 0 {
                 let err = std::io::Error::last_os_error();
@@ -98,7 +96,9 @@ impl MemoryEngine {
         #[cfg(not(windows))]
         {
             let _ = (pid, address, buffer);
-            Err(NucleusError::Platform("Memory reading is only supported on Windows".into()))
+            Err(NucleusError::Platform(
+                "Memory reading is only supported on Windows".into(),
+            ))
         }
     }
 
@@ -161,7 +161,9 @@ impl MemoryEngine {
                 }
             }
 
-            unsafe { let _ = CloseHandle(handle); }
+            unsafe {
+                let _ = CloseHandle(handle);
+            }
 
             if success.is_err() {
                 let err = std::io::Error::last_os_error();
@@ -175,7 +177,9 @@ impl MemoryEngine {
         #[cfg(not(windows))]
         {
             let _ = (pid, address, data);
-            Err(NucleusError::Platform("Memory writing is only supported on Windows".into()))
+            Err(NucleusError::Platform(
+                "Memory writing is only supported on Windows".into(),
+            ))
         }
     }
 
@@ -270,7 +274,9 @@ impl MemoryEngine {
                 if is_committed && is_readable && !is_guarded {
                     let region_base = mem_info.BaseAddress as usize;
                     let region_size = mem_info.RegionSize;
-                    if let Ok(sub_matches) = Self::aob_scan_range(pid, region_base, region_size, pattern, mask) {
+                    if let Ok(sub_matches) =
+                        Self::aob_scan_range(pid, region_base, region_size, pattern, mask)
+                    {
                         matches.extend(sub_matches);
                     }
                 }
@@ -281,13 +287,17 @@ impl MemoryEngine {
                 }
             }
 
-            unsafe { let _ = CloseHandle(handle); }
+            unsafe {
+                let _ = CloseHandle(handle);
+            }
             Ok(matches)
         }
         #[cfg(not(windows))]
         {
             let _ = (pid, pattern, mask);
-            Err(NucleusError::Platform("AOB scanning is only supported on Windows".into()))
+            Err(NucleusError::Platform(
+                "AOB scanning is only supported on Windows".into(),
+            ))
         }
     }
 

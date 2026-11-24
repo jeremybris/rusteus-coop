@@ -6,7 +6,7 @@ use nucleus_common::error::{NucleusError, NucleusResult};
 use windows::Win32::Foundation::{CloseHandle, HANDLE, LUID};
 #[cfg(windows)]
 use windows::Win32::Security::{
-    AdjustTokenPrivileges, LookupPrivilegeValueW, LUID_AND_ATTRIBUTES, SE_PRIVILEGE_ENABLED,
+    AdjustTokenPrivileges, LUID_AND_ATTRIBUTES, LookupPrivilegeValueW, SE_PRIVILEGE_ENABLED,
     TOKEN_ADJUST_PRIVILEGES, TOKEN_PRIVILEGES, TOKEN_QUERY,
 };
 #[cfg(windows)]
@@ -27,14 +27,18 @@ pub fn enable_debug_privilege() -> NucleusResult<()> {
         )
         .is_err()
         {
-            return Err(NucleusError::Platform("OpenProcessToken failed".to_string()));
+            return Err(NucleusError::Platform(
+                "OpenProcessToken failed".to_string(),
+            ));
         }
 
         let mut luid = LUID::default();
         let priv_name = windows::core::w!("SeDebugPrivilege");
         if LookupPrivilegeValueW(None, priv_name, &mut luid).is_err() {
             let _ = CloseHandle(token);
-            return Err(NucleusError::Platform("LookupPrivilegeValueW failed".to_string()));
+            return Err(NucleusError::Platform(
+                "LookupPrivilegeValueW failed".to_string(),
+            ));
         }
 
         let mut tp = TOKEN_PRIVILEGES {
@@ -49,7 +53,9 @@ pub fn enable_debug_privilege() -> NucleusResult<()> {
         let _ = CloseHandle(token);
 
         if res.is_err() {
-            return Err(NucleusError::Platform("AdjustTokenPrivileges failed".to_string()));
+            return Err(NucleusError::Platform(
+                "AdjustTokenPrivileges failed".to_string(),
+            ));
         }
     }
     Ok(())
@@ -94,5 +100,7 @@ pub fn open_target_process(pid: u32, write_access: bool) -> NucleusResult<HANDLE
 #[cfg(not(windows))]
 pub fn open_target_process(pid: u32, _write_access: bool) -> NucleusResult<usize> {
     let _ = pid;
-    Err(NucleusError::Unsupported("Process handle acquisition not supported on non-Windows".to_string()))
+    Err(NucleusError::Unsupported(
+        "Process handle acquisition not supported on non-Windows".to_string(),
+    ))
 }

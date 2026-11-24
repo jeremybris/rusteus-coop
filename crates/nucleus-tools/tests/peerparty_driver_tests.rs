@@ -18,15 +18,28 @@ fn test_peerparty_driver_env_generation() {
     let instance_dir = Path::new("C:/Games/Nucleus/Instance1");
     let envs = tool.generate_env_vars(1, "PlayerTwo", instance_dir, &config);
 
-    assert_eq!(envs.get("PEERPARTY_GAME_ROOT"), Some(&"C:/Games/Nucleus/Instance1".to_string()));
-    assert_eq!(envs.get("PEERPARTY_PLAYER_NAME"), Some(&"PlayerTwo".to_string()));
+    assert_eq!(
+        envs.get("PEERPARTY_GAME_ROOT"),
+        Some(&"C:/Games/Nucleus/Instance1".to_string())
+    );
+    assert_eq!(
+        envs.get("PEERPARTY_PLAYER_NAME"),
+        Some(&"PlayerTwo".to_string())
+    );
     assert_eq!(envs.get("PEERPARTY_MULTI_INSTANCE"), Some(&"1".to_string()));
     assert_eq!(envs.get("PEERPARTY_COPY_SAVES"), Some(&"1".to_string()));
-    assert_eq!(envs.get("PEERPARTY_ROOM"), Some(&"TEST_ROOM_42".to_string()));
+    assert_eq!(
+        envs.get("PEERPARTY_ROOM"),
+        Some(&"TEST_ROOM_42".to_string())
+    );
     assert_eq!(envs.get("PEERPARTY_PUBLIC"), Some(&"1".to_string()));
     assert!(envs.get("PEERPARTY_SERVICES").unwrap().contains("steam"));
     assert!(envs.get("PEERPARTY_SERVICES").unwrap().contains("photon"));
-    assert!(envs.get("PEERPARTY_SET").unwrap().contains("name=PlayerTwo"));
+    assert!(
+        envs.get("PEERPARTY_SET")
+            .unwrap()
+            .contains("name=PlayerTwo")
+    );
 }
 
 #[test]

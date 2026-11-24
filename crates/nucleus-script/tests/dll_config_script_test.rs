@@ -21,7 +21,9 @@ fn test_parse_game_injected_dlls_from_js() {
         ];
     "#;
 
-    let config = engine.load_handler_script(script).expect("Failed to load handler script");
+    let config = engine
+        .load_handler_script(script)
+        .expect("Failed to load handler script");
     assert_eq!(config.injected_dlls.len(), 1);
     let dll = &config.injected_dlls[0];
     assert_eq!(dll.path, "mods/fov_fix.dll");
@@ -45,7 +47,9 @@ fn test_game_add_injected_dll_helper() {
         });
     "#;
 
-    let config = engine.load_handler_script(script).expect("Failed to load handler script");
+    let config = engine
+        .load_handler_script(script)
+        .expect("Failed to load handler script");
     assert_eq!(config.injected_dlls.len(), 1);
     let dll = &config.injected_dlls[0];
     assert_eq!(dll.path, "tools/hook.dll");

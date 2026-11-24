@@ -86,7 +86,10 @@ impl PeerPartyTool {
         let voice_str = if config.voice_enabled { "on" } else { "off" };
         let overlay_str = if config.overlay_enabled { "on" } else { "off" };
         args.push("--set".to_string());
-        args.push(format!("name={},voice={},overlay={}", player_nick, voice_str, overlay_str));
+        args.push(format!(
+            "name={},voice={},overlay={}",
+            player_nick, voice_str, overlay_str
+        ));
         args
     }
 
@@ -126,10 +129,7 @@ impl PeerPartyTool {
             instance_dir.to_string_lossy().to_string(),
         );
         envs.insert("PEERPARTY_PLAYER_NAME".to_string(), player_nick.to_string());
-        envs.insert(
-            "PEERPARTY_SERVICES".to_string(),
-            config.to_services_env(),
-        );
+        envs.insert("PEERPARTY_SERVICES".to_string(), config.to_services_env());
 
         if config.multi_instance {
             envs.insert("PEERPARTY_MULTI_INSTANCE".to_string(), "1".to_string());
@@ -150,7 +150,10 @@ impl PeerPartyTool {
         // Formats setting overrides: name=<Nick>,voice=<on|off>,overlay=<on|off>
         let voice_str = if config.voice_enabled { "on" } else { "off" };
         let overlay_str = if config.overlay_enabled { "on" } else { "off" };
-        let set_str = format!("name={},voice={},overlay={}", player_nick, voice_str, overlay_str);
+        let set_str = format!(
+            "name={},voice={},overlay={}",
+            player_nick, voice_str, overlay_str
+        );
         envs.insert("PEERPARTY_SET".to_string(), set_str);
 
         envs

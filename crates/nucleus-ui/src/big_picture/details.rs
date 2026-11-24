@@ -17,18 +17,14 @@ use crate::theme;
 use crate::window::MainWindow;
 
 /// Renders the complete Game Details screen (Screen 7).
-pub fn render_game_details_view(
-    win: &MainWindow,
-    cx: &mut Context<MainWindow>,
-) -> AnyElement {
+pub fn render_game_details_view(win: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
     let target_game = match win.selected_game.as_ref() {
         Some(g) => g.clone(),
         None => "Unknown Game".to_string(),
     };
 
     let handler_opt = win.handlers.iter().find(|h| {
-        h.game_name.eq_ignore_ascii_case(&target_game)
-            || h.guid.eq_ignore_ascii_case(&target_game)
+        h.game_name.eq_ignore_ascii_case(&target_game) || h.guid.eq_ignore_ascii_case(&target_game)
     });
 
     let game_title = handler_opt

@@ -1,6 +1,4 @@
-use nucleus_common::dll_injection::{
-    DllInjectionConfig, InjectionTiming, TargetInstanceFilter,
-};
+use nucleus_common::dll_injection::{DllInjectionConfig, InjectionTiming, TargetInstanceFilter};
 use nucleus_handler::environment::EnvironmentSetup;
 use nucleus_handler::game_handler::GameHandler;
 use nucleus_handler::traits::IGameHandler;
@@ -10,9 +8,18 @@ use std::path::PathBuf;
 #[test]
 fn test_environment_telemetry_variables() {
     let env_0 = EnvironmentSetup::build_environment(0, Some("480"), None);
-    assert_eq!(env_0.get("NUCLEUS_INSTANCE_INDEX").map(|s| s.as_str()), Some("0"));
-    assert_eq!(env_0.get("NUCLEUS_PLAYER_INDEX").map(|s| s.as_str()), Some("0"));
-    assert_eq!(env_0.get("NUCLEUS_PLAYER_ID").map(|s| s.as_str()), Some("1"));
+    assert_eq!(
+        env_0.get("NUCLEUS_INSTANCE_INDEX").map(|s| s.as_str()),
+        Some("0")
+    );
+    assert_eq!(
+        env_0.get("NUCLEUS_PLAYER_INDEX").map(|s| s.as_str()),
+        Some("0")
+    );
+    assert_eq!(
+        env_0.get("NUCLEUS_PLAYER_ID").map(|s| s.as_str()),
+        Some("1")
+    );
     assert_eq!(
         env_0.get("NUCLEUS_PIPE_NAME").map(|s| s.as_str()),
         Some(r"\\.\pipe\nucleus_instance_0")
@@ -23,7 +30,10 @@ fn test_environment_telemetry_variables() {
     );
 
     let env_1 = EnvironmentSetup::build_environment(1, None, None);
-    assert_eq!(env_1.get("NUCLEUS_INSTANCE_INDEX").map(|s| s.as_str()), Some("1"));
+    assert_eq!(
+        env_1.get("NUCLEUS_INSTANCE_INDEX").map(|s| s.as_str()),
+        Some("1")
+    );
     assert_eq!(
         env_1.get("NUCLEUS_PIPE_NAME").map(|s| s.as_str()),
         Some(r"\\.\pipe\nucleus_instance_1")
@@ -63,11 +73,14 @@ fn test_game_handler_dll_path_resolution_and_filtering() {
     config.injected_dlls = vec![dll_first, dll_second];
 
     let mut handler = GameHandler::new(config, game_dir.clone(), exe_path, staging_dir, 2);
-    handler.prepare_instances().expect("Prepare instances failed");
+    handler
+        .prepare_instances()
+        .expect("Prepare instances failed");
 
     // Test DLL path resolution: instance-staged file is prioritized for isolation
     let resolved_first = handler.resolve_dll_path(&handler.config.injected_dlls[0], 0);
-    let expected_inst_dll = PathBuf::from(&handler.contexts[0].instance_folder).join("game_mod.dll");
+    let expected_inst_dll =
+        PathBuf::from(&handler.contexts[0].instance_folder).join("game_mod.dll");
     assert_eq!(PathBuf::from(&resolved_first.path), expected_inst_dll);
     assert!(PathBuf::from(&resolved_first.path).exists());
 
@@ -79,15 +92,34 @@ fn test_game_handler_dll_path_resolution_and_filtering() {
     assert_eq!(PathBuf::from(&resolved_extra.path), extra_dll);
 
     // Test filter logic
-    assert!(handler.config.injected_dlls[0].target_instances.applies_to(0, 2));
-    assert!(!handler.config.injected_dlls[0].target_instances.applies_to(1, 2));
-    assert!(!handler.config.injected_dlls[1].target_instances.applies_to(0, 2));
-    assert!(handler.config.injected_dlls[1].target_instances.applies_to(1, 2));
+    assert!(
+        handler.config.injected_dlls[0]
+            .target_instances
+            .applies_to(0, 2)
+    );
+    assert!(
+        !handler.config.injected_dlls[0]
+            .target_instances
+            .applies_to(1, 2)
+    );
+    assert!(
+        !handler.config.injected_dlls[1]
+            .target_instances
+            .applies_to(0, 2)
+    );
+    assert!(
+        handler.config.injected_dlls[1]
+            .target_instances
+            .applies_to(1, 2)
+    );
 
     // Test injected modules tracking and teardown
     handler.injected_modules.push((1234, 0x10000000, true));
     handler.stop().expect("Stop handler failed");
-    assert!(handler.injected_modules.is_empty(), "Injected modules should be cleared after stop");
+    assert!(
+        handler.injected_modules.is_empty(),
+        "Injected modules should be cleared after stop"
+    );
 
     let _ = std::fs::remove_dir_all(&temp_dir);
 }

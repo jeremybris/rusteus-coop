@@ -129,7 +129,13 @@ mod tests {
     fn test_split_command_line_keeps_quoted_paths_together() {
         assert_eq!(
             split_command_line(r#"-windowed -config "C:\My Games\p1.cfg" +name Player1"#),
-            vec!["-windowed", "-config", r"C:\My Games\p1.cfg", "+name", "Player1"]
+            vec![
+                "-windowed",
+                "-config",
+                r"C:\My Games\p1.cfg",
+                "+name",
+                "Player1"
+            ]
         );
         assert_eq!(split_command_line("  "), Vec::<String>::new());
         assert_eq!(split_command_line(r#"-a "" -b"#), vec!["-a", "", "-b"]);

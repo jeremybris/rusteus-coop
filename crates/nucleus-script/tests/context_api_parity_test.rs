@@ -375,7 +375,10 @@ fn older_hook_settings_are_translated_to_proto_input() {
     assert_eq!(p.move_window_hook, MoveWindowHook::True);
     assert!(p.raw_input_filter && p.register_raw_input_hook && p.get_raw_input_data_hook);
     assert!(p.message_filter_hook && p.mouse_move_filter && p.mouse_button_filter);
-    assert!(p.get_cursor_pos_hook && p.set_cursor_pos_hook, "defaults stay enabled");
+    assert!(
+        p.get_cursor_pos_hook && p.set_cursor_pos_hook,
+        "defaults stay enabled"
+    );
     assert!(!p.get_key_state_hook, "explicitly disabled hook stays off");
     assert!(!p.send_mouse_movement_messages && !p.send_mouse_button_messages);
     assert!(p.send_keyboard_button_messages && p.send_mouse_wheel_messages);

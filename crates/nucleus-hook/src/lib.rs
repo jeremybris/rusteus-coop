@@ -17,16 +17,17 @@ pub mod remote_memory;
 pub use focus_hook::FocusHook;
 pub use injector::DllInjector;
 pub use ipc::{
-    send_pipe_message_sync, IpcMessage, NamedPipeConnection, NamedPipeIpcServer, SharedMemorySegment,
+    IpcMessage, NamedPipeConnection, NamedPipeIpcServer, SharedMemorySegment,
+    send_pipe_message_sync,
 };
 pub use memory_engine::{FrozenMemorySlot, MemoryEngine};
 pub use pe_inspector::{PeInfo, PeInspector, PeMachine};
 pub use privilege::open_target_process;
-pub use remote_call::RemoteRpc;
-pub use remote_memory::RemoteMemoryGuard;
 pub use proto_input::{
     DrawFakeCursor, InjectMethod, MoveWindowHook, PlayerProtoInputConfig, ProcessBitness,
     ProtoHookIDs, ProtoInput, ProtoInputConfig, ProtoInputLoader, ProtoInputMessageFilterIDs,
     ProtoInputRuntime, ProtoInputUtil, ProtoMessageFilterIDs, PutMouseInsideWindow,
     SetRemoveBorderHook, SetWindowPosHook, guid_bytes_to_dinput_fields, guid_to_dinput_fields,
 };
+pub use remote_call::RemoteRpc;
+pub use remote_memory::RemoteMemoryGuard;

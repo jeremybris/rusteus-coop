@@ -27,16 +27,12 @@ impl RemoteRpc {
         argument: Option<&str>,
     ) -> NucleusResult<u32> {
         let pe_info = PeInspector::inspect_file(dll_path)?;
-        let rva = pe_info
-            .exports
-            .get(export_name)
-            .copied()
-            .ok_or_else(|| {
-                NucleusError::DllInjection(format!(
-                    "Export '{}' not found in PE export table of {:?}",
-                    export_name, dll_path
-                ))
-            })?;
+        let rva = pe_info.exports.get(export_name).copied().ok_or_else(|| {
+            NucleusError::DllInjection(format!(
+                "Export '{}' not found in PE export table of {:?}",
+                export_name, dll_path
+            ))
+        })?;
 
         let remote_func_addr = (module_base as u64 + rva as u64) as *const c_void;
 
@@ -122,7 +118,9 @@ impl RemoteRpc {
         #[cfg(not(windows))]
         {
             let _ = (pid, module_base, export_name, argument);
-            Err(NucleusError::Unsupported("Remote export execution only supported on Windows".to_string()))
+            Err(NucleusError::Unsupported(
+                "Remote export execution only supported on Windows".to_string(),
+            ))
         }
     }
 }

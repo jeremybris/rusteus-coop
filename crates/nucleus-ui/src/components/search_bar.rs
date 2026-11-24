@@ -1,8 +1,8 @@
 use gpui::prelude::FluentBuilder;
 use gpui::{
     AnyElement, App, ClickEvent, ElementId, FocusHandle, FontWeight, InteractiveElement,
-    IntoElement, KeyDownEvent, MouseButton, ParentElement, SharedString, StatefulInteractiveElement, Styled,
-    Window, div, px,
+    IntoElement, KeyDownEvent, MouseButton, ParentElement, SharedString,
+    StatefulInteractiveElement, Styled, Window, div, px,
 };
 use gpui_component::Icon;
 use gpui_kit_assets::IconName;

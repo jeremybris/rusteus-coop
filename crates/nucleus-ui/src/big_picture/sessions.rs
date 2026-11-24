@@ -15,10 +15,7 @@ use crate::theme;
 use crate::window::MainWindow;
 
 /// Renders the complete Sessions screen (Screen 2 if session is active, Screen 3 if idle).
-pub fn render_sessions_view(
-    win: &MainWindow,
-    cx: &mut Context<MainWindow>,
-) -> AnyElement {
+pub fn render_sessions_view(win: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
     if win.session_active {
         render_active_session_controls(win, cx)
     } else {
@@ -27,18 +24,14 @@ pub fn render_sessions_view(
 }
 
 /// Screen 2: Active Session Controls view.
-fn render_active_session_controls(
-    win: &MainWindow,
-    cx: &mut Context<MainWindow>,
-) -> AnyElement {
+fn render_active_session_controls(win: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
     let target_game = win
         .selected_game
         .clone()
         .unwrap_or_else(|| "Active Game".to_string());
 
     let handler_opt = win.handlers.iter().find(|h| {
-        h.game_name.eq_ignore_ascii_case(&target_game)
-            || h.guid.eq_ignore_ascii_case(&target_game)
+        h.game_name.eq_ignore_ascii_case(&target_game) || h.guid.eq_ignore_ascii_case(&target_game)
     });
 
     let cover_url_opt = handler_opt.and_then(|h| h.cover_image_url.clone());
@@ -363,7 +356,8 @@ fn render_active_session_controls(
                             "Read first / Game guide",
                             win.sessions_focus_index == 2,
                             |this, cx| {
-                                this.big_picture_screen = crate::big_picture::BigPictureScreen::GameDetails;
+                                this.big_picture_screen =
+                                    crate::big_picture::BigPictureScreen::GameDetails;
                                 cx.notify();
                             },
                             cx,
@@ -397,7 +391,10 @@ fn render_active_session_controls(
                                 } else {
                                     theme::danger().opacity(0.40)
                                 })
-                                .hover(|s| s.bg(theme::danger().opacity(0.12)).border_color(theme::danger()))
+                                .hover(|s| {
+                                    s.bg(theme::danger().opacity(0.12))
+                                        .border_color(theme::danger())
+                                })
                                 .on_click(cx.listener(|this, _, _, cx| {
                                     this.stop_active_session_cleanly(cx);
                                 }))
@@ -415,10 +412,7 @@ fn render_active_session_controls(
 }
 
 /// Screen 3: Saved Profiles Browser view (Idle state).
-fn render_saved_profiles_browser(
-    win: &MainWindow,
-    cx: &mut Context<MainWindow>,
-) -> AnyElement {
+fn render_saved_profiles_browser(win: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
     let saved_profiles = win.get_all_saved_profiles_items();
 
     div()

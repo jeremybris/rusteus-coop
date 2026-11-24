@@ -15,18 +15,14 @@ use crate::theme;
 use crate::window::MainWindow;
 
 /// Renders the complete Game Management screen (Screen 1).
-pub fn render_game_management_view(
-    win: &MainWindow,
-    cx: &mut Context<MainWindow>,
-) -> AnyElement {
+pub fn render_game_management_view(win: &MainWindow, cx: &mut Context<MainWindow>) -> AnyElement {
     let target_game = match win.selected_game.as_ref() {
         Some(g) => g.clone(),
         None => "Unknown Game".to_string(),
     };
 
     let handler_opt = win.handlers.iter().find(|h| {
-        h.game_name.eq_ignore_ascii_case(&target_game)
-            || h.guid.eq_ignore_ascii_case(&target_game)
+        h.game_name.eq_ignore_ascii_case(&target_game) || h.guid.eq_ignore_ascii_case(&target_game)
     });
 
     let game_title = handler_opt
@@ -111,7 +107,8 @@ pub fn render_game_management_view(
                         })
                         .hover(|s| s.bg(theme::bg_active()).border_color(theme::accent()))
                         .on_click(cx.listener(|this, _, _, cx| {
-                            this.big_picture_screen = crate::big_picture::BigPictureScreen::GameDetails;
+                            this.big_picture_screen =
+                                crate::big_picture::BigPictureScreen::GameDetails;
                             cx.notify();
                         }))
                         .child(
@@ -171,7 +168,12 @@ pub fn render_game_management_view(
                                         let h_guid = handler_guid.clone();
                                         let g_name = game_title.clone();
                                         move |this, cx| {
-                                            this.open_game_handler_file(h_path.as_deref(), &h_guid, &g_name, cx);
+                                            this.open_game_handler_file(
+                                                h_path.as_deref(),
+                                                &h_guid,
+                                                &g_name,
+                                                cx,
+                                            );
                                         }
                                     },
                                     cx,
@@ -258,7 +260,9 @@ pub fn render_game_management_view(
                                                     {
                                                         let guid = handler_guid.clone();
                                                         move |this, cx| {
-                                                            this.set_gamepad_mode_preference(&guid, "by_index", cx);
+                                                            this.set_gamepad_mode_preference(
+                                                                &guid, "by_index", cx,
+                                                            );
                                                         }
                                                     },
                                                     cx,
@@ -270,7 +274,11 @@ pub fn render_game_management_view(
                                                     {
                                                         let guid = handler_guid.clone();
                                                         move |this, cx| {
-                                                            this.set_gamepad_mode_preference(&guid, "on_button_press", cx);
+                                                            this.set_gamepad_mode_preference(
+                                                                &guid,
+                                                                "on_button_press",
+                                                                cx,
+                                                            );
                                                         }
                                                     },
                                                     cx,
@@ -312,7 +320,9 @@ pub fn render_game_management_view(
                                                 .on_click({
                                                     let guid = handler_guid.clone();
                                                     cx.listener(move |this, _, _, cx| {
-                                                        this.cycle_steam_language_preference(&guid, cx);
+                                                        this.cycle_steam_language_preference(
+                                                            &guid, cx,
+                                                        );
                                                     })
                                                 })
                                                 .child(
@@ -416,41 +426,44 @@ pub fn render_game_management_view(
                                         .child("Change the icon shown in your library."),
                                 )
                                 .child(
-                                    div()
-                                        .pt_2()
-                                        .child(
-                                            div()
-                                                .id("btn-mgmt-change-icon")
-                                                .cursor_pointer()
-                                                .flex()
-                                                .items_center()
-                                                .justify_center()
-                                                .w_full()
-                                                .py_2p5()
-                                                .rounded_lg()
-                                                .bg(theme::bg_subtle())
-                                                .border_2()
-                                                .border_color(if win.management_focus_index == 6 {
-                                                    rgb(0x22c55e).into()
-                                                } else {
-                                                    theme::border_color()
+                                    div().pt_2().child(
+                                        div()
+                                            .id("btn-mgmt-change-icon")
+                                            .cursor_pointer()
+                                            .flex()
+                                            .items_center()
+                                            .justify_center()
+                                            .w_full()
+                                            .py_2p5()
+                                            .rounded_lg()
+                                            .bg(theme::bg_subtle())
+                                            .border_2()
+                                            .border_color(if win.management_focus_index == 6 {
+                                                rgb(0x22c55e).into()
+                                            } else {
+                                                theme::border_color()
+                                            })
+                                            .hover(|s| {
+                                                s.bg(theme::bg_active())
+                                                    .border_color(theme::accent())
+                                            })
+                                            .on_click({
+                                                let g_guid = handler_guid.clone();
+                                                let g_name = game_title.clone();
+                                                cx.listener(move |this, _, _, cx| {
+                                                    this.trigger_change_game_icon_async(
+                                                        &g_guid, &g_name, cx,
+                                                    );
                                                 })
-                                                .hover(|s| s.bg(theme::bg_active()).border_color(theme::accent()))
-                                                .on_click({
-                                                    let g_guid = handler_guid.clone();
-                                                    let g_name = game_title.clone();
-                                                    cx.listener(move |this, _, _, cx| {
-                                                        this.trigger_change_game_icon_async(&g_guid, &g_name, cx);
-                                                    })
-                                                })
-                                                .child(
-                                                    div()
-                                                        .text_sm()
-                                                        .font_weight(FontWeight::SEMIBOLD)
-                                                        .text_color(theme::text_primary())
-                                                        .child("Change game icon"),
-                                                ),
-                                        ),
+                                            })
+                                            .child(
+                                                div()
+                                                    .text_sm()
+                                                    .font_weight(FontWeight::SEMIBOLD)
+                                                    .text_color(theme::text_primary())
+                                                    .child("Change game icon"),
+                                            ),
+                                    ),
                                 ),
                         )
                         // 4. Remove from library panel
@@ -477,44 +490,49 @@ pub fn render_game_management_view(
                                         .text_xs()
                                         .font_weight(FontWeight::MEDIUM)
                                         .text_color(theme::text_muted())
-                                        .child("Your installed game and save data stay on this PC."),
+                                        .child(
+                                            "Your installed game and save data stay on this PC.",
+                                        ),
                                 )
                                 .child(
-                                    div()
-                                        .pt_2()
-                                        .child(
-                                            div()
-                                                .id("btn-mgmt-remove-game")
-                                                .cursor_pointer()
-                                                .flex()
-                                                .items_center()
-                                                .justify_center()
-                                                .w_full()
-                                                .py_2p5()
-                                                .rounded_lg()
-                                                .bg(theme::bg_subtle())
-                                                .border_2()
-                                                .border_color(if win.management_focus_index == 7 {
-                                                    rgb(0x22c55e).into()
-                                                } else {
-                                                    theme::danger().opacity(0.40)
+                                    div().pt_2().child(
+                                        div()
+                                            .id("btn-mgmt-remove-game")
+                                            .cursor_pointer()
+                                            .flex()
+                                            .items_center()
+                                            .justify_center()
+                                            .w_full()
+                                            .py_2p5()
+                                            .rounded_lg()
+                                            .bg(theme::bg_subtle())
+                                            .border_2()
+                                            .border_color(if win.management_focus_index == 7 {
+                                                rgb(0x22c55e).into()
+                                            } else {
+                                                theme::danger().opacity(0.40)
+                                            })
+                                            .hover(|s| {
+                                                s.bg(theme::danger().opacity(0.12))
+                                                    .border_color(theme::danger())
+                                            })
+                                            .on_click({
+                                                let g_name = game_title.clone();
+                                                let g_guid = handler_guid.clone();
+                                                cx.listener(move |this, _, _, cx| {
+                                                    this.prompt_remove_game_confirmation(
+                                                        &g_guid, &g_name, cx,
+                                                    );
                                                 })
-                                                .hover(|s| s.bg(theme::danger().opacity(0.12)).border_color(theme::danger()))
-                                                .on_click({
-                                                    let g_name = game_title.clone();
-                                                    let g_guid = handler_guid.clone();
-                                                    cx.listener(move |this, _, _, cx| {
-                                                        this.prompt_remove_game_confirmation(&g_guid, &g_name, cx);
-                                                    })
-                                                })
-                                                .child(
-                                                    div()
-                                                        .text_sm()
-                                                        .font_weight(FontWeight::SEMIBOLD)
-                                                        .text_color(theme::danger())
-                                                        .child("Remove game from list..."),
-                                                ),
-                                        ),
+                                            })
+                                            .child(
+                                                div()
+                                                    .text_sm()
+                                                    .font_weight(FontWeight::SEMIBOLD)
+                                                    .text_color(theme::danger())
+                                                    .child("Remove game from list..."),
+                                            ),
+                                    ),
                                 ),
                         ),
                 ),

@@ -118,12 +118,13 @@ pub fn highlight_js_tokens(code: &str) -> Vec<(String, Hsla)> {
     }
 
     let keywords = [
-        "function", "var", "let", "const", "return", "if", "else", "for", "while",
-        "break", "continue", "switch", "case", "default", "new", "this", "typeof",
-        "delete", "throw", "try", "catch", "finally", "class", "extends", "import", "export",
+        "function", "var", "let", "const", "return", "if", "else", "for", "while", "break",
+        "continue", "switch", "case", "default", "new", "this", "typeof", "delete", "throw", "try",
+        "catch", "finally", "class", "extends", "import", "export",
     ];
     let globals = [
-        "Game", "Nucleus", "Hub", "Context", "Player", "Audio", "Display", "console", "Math", "JSON",
+        "Game", "Nucleus", "Hub", "Context", "Player", "Audio", "Display", "console", "Math",
+        "JSON",
     ];
     let literals = ["true", "false", "null", "undefined"];
 
@@ -170,7 +171,12 @@ pub fn highlight_js_tokens(code: &str) -> Vec<(String, Hsla)> {
             tokens.push((ident, color));
         } else if ch.is_ascii_digit() {
             let mut num = String::new();
-            while i < len && (chars[i].is_ascii_digit() || chars[i] == '.' || chars[i] == 'x' || chars[i] == 'X') {
+            while i < len
+                && (chars[i].is_ascii_digit()
+                    || chars[i] == '.'
+                    || chars[i] == 'x'
+                    || chars[i] == 'X')
+            {
                 num.push(chars[i]);
                 i += 1;
             }

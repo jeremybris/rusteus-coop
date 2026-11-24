@@ -9,7 +9,7 @@ use windows::Win32::Foundation::HANDLE;
 use windows::Win32::System::Diagnostics::Debug::{ReadProcessMemory, WriteProcessMemory};
 #[cfg(windows)]
 use windows::Win32::System::Memory::{
-    VirtualAllocEx, VirtualFreeEx, MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_READWRITE,
+    MEM_COMMIT, MEM_RELEASE, MEM_RESERVE, PAGE_READWRITE, VirtualAllocEx, VirtualFreeEx,
 };
 
 /// An RAII guard managing a block of memory allocated in a target process.
@@ -29,7 +29,9 @@ impl RemoteMemoryGuard {
     #[cfg(windows)]
     pub fn allocate(process: HANDLE, size: usize) -> NucleusResult<Self> {
         if size == 0 {
-            return Err(NucleusError::Platform("Cannot allocate zero bytes in remote process".to_string()));
+            return Err(NucleusError::Platform(
+                "Cannot allocate zero bytes in remote process".to_string(),
+            ));
         }
 
         // SAFETY: `process` is a valid open process handle with PROCESS_VM_OPERATION.
@@ -45,7 +47,9 @@ impl RemoteMemoryGuard {
         };
 
         if address.is_null() {
-            return Err(NucleusError::Platform("VirtualAllocEx failed to allocate remote memory".to_string()));
+            return Err(NucleusError::Platform(
+                "VirtualAllocEx failed to allocate remote memory".to_string(),
+            ));
         }
 
         Ok(Self {
@@ -58,7 +62,9 @@ impl RemoteMemoryGuard {
 
     #[cfg(not(windows))]
     pub fn allocate(_process: usize, _size: usize) -> NucleusResult<Self> {
-        Err(NucleusError::Unsupported("Remote memory allocation not supported on this platform".to_string()))
+        Err(NucleusError::Unsupported(
+            "Remote memory allocation not supported on this platform".to_string(),
+        ))
     }
 
     /// Returns the remote base address.
@@ -91,7 +97,9 @@ impl RemoteMemoryGuard {
                 None,
             );
             if res.is_err() {
-                return Err(NucleusError::Platform("WriteProcessMemory failed".to_string()));
+                return Err(NucleusError::Platform(
+                    "WriteProcessMemory failed".to_string(),
+                ));
             }
         }
 
@@ -113,7 +121,9 @@ impl RemoteMemoryGuard {
                 Some(&mut bytes_read),
             );
             if res.is_err() {
-                return Err(NucleusError::Platform("ReadProcessMemory failed".to_string()));
+                return Err(NucleusError::Platform(
+                    "ReadProcessMemory failed".to_string(),
+                ));
             }
             Ok(bytes_read)
         }

@@ -1,6 +1,6 @@
 //! Unit tests for PeerParty UI controls and settings cards.
 
-use nucleus_ui::settings_view::{filter_settings_cards, SettingsCategory, SETTINGS_CARDS};
+use nucleus_ui::settings_view::{SETTINGS_CARDS, SettingsCategory, filter_settings_cards};
 
 #[test]
 fn test_peerparty_settings_card_registration() {

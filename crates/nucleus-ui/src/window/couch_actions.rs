@@ -49,26 +49,20 @@ impl MainWindow {
         }
     }
 
-
     /// Enters Couch Splitscreen Setup for the specified game with auto-assignment.
     pub fn enter_couch_setup(&mut self, game_name: &str, cx: &mut Context<Self>) {
         self.selected_game = Some(game_name.to_string());
-        let handler_opt = self
-            .handlers
-            .iter()
-            .find(|h| {
-                h.game_name.eq_ignore_ascii_case(game_name)
-                    || h.guid.eq_ignore_ascii_case(game_name)
-            });
-        let supports_keyboard = handler_opt
-            .map(|h| h.supports_keyboard)
-            .unwrap_or(false);
+        let handler_opt = self.handlers.iter().find(|h| {
+            h.game_name.eq_ignore_ascii_case(game_name) || h.guid.eq_ignore_ascii_case(game_name)
+        });
+        let supports_keyboard = handler_opt.map(|h| h.supports_keyboard).unwrap_or(false);
 
         if let Some(h) = handler_opt {
             for opt in &h.options {
                 if !self.selected_handler_options.contains_key(&opt.key) {
                     if let Some(first_val) = opt.values.first() {
-                        self.selected_handler_options.insert(opt.key.clone(), first_val.clone());
+                        self.selected_handler_options
+                            .insert(opt.key.clone(), first_val.clone());
                     }
                 }
             }
@@ -353,7 +347,8 @@ impl MainWindow {
                     }
                 } else if self.big_picture_screen == BigPictureScreen::Settings {
                     if self.settings_focus_zone == 0 {
-                        self.big_picture_settings_tab = self.big_picture_settings_tab.saturating_sub(1);
+                        self.big_picture_settings_tab =
+                            self.big_picture_settings_tab.saturating_sub(1);
                     } else {
                         self.settings_item_index = self.settings_item_index.saturating_sub(1);
                     }
@@ -373,10 +368,15 @@ impl MainWindow {
                     if self.couch_setup_state.focused_slot > 0 {
                         self.couch_setup_state.focused_slot -= 1;
                     }
-                    if self.couch_setup_state.current_step == crate::big_picture::setup::CouchSetupStep::ScreenLayout
-                        && self.couch_setup_state.focused_slot < crate::big_picture::setup::AVAILABLE_LAYOUTS.len()
+                    if self.couch_setup_state.current_step
+                        == crate::big_picture::setup::CouchSetupStep::ScreenLayout
+                        && self.couch_setup_state.focused_slot
+                            < crate::big_picture::setup::AVAILABLE_LAYOUTS.len()
                     {
-                        self.couch_setup_state.selected_layout = crate::big_picture::setup::AVAILABLE_LAYOUTS[self.couch_setup_state.focused_slot].to_string();
+                        self.couch_setup_state.selected_layout =
+                            crate::big_picture::setup::AVAILABLE_LAYOUTS
+                                [self.couch_setup_state.focused_slot]
+                                .to_string();
                         self.selected_layout = self.couch_setup_state.selected_layout.clone();
                     }
                 }
@@ -412,7 +412,11 @@ impl MainWindow {
                     if self.settings_focus_zone == 0 {
                         self.big_picture_settings_tab = (self.big_picture_settings_tab + 1).min(1);
                     } else {
-                        let max_items = if self.big_picture_settings_tab == 0 { 6 } else { self.detected_devices_list.len() + 1 };
+                        let max_items = if self.big_picture_settings_tab == 0 {
+                            6
+                        } else {
+                            self.detected_devices_list.len() + 1
+                        };
                         self.settings_item_index = (self.settings_item_index + 1).min(max_items);
                     }
                 } else if self.big_picture_screen == BigPictureScreen::CouchHub {
@@ -428,20 +432,36 @@ impl MainWindow {
                     }
                 } else if self.big_picture_screen == BigPictureScreen::CouchSetup {
                     let max_slots = match self.couch_setup_state.current_step {
-                        crate::big_picture::setup::CouchSetupStep::Players => self.couch_setup_state.slots.len(),
-                        crate::big_picture::setup::CouchSetupStep::ScreenLayout => crate::big_picture::setup::AVAILABLE_LAYOUTS.len(),
-                        crate::big_picture::setup::CouchSetupStep::GameOptions => {
-                            self.selected_game.as_ref().and_then(|g| self.handlers.iter().find(|h| &h.game_name == g || &h.guid == g)).map(|h| h.options.len()).unwrap_or(0)
+                        crate::big_picture::setup::CouchSetupStep::Players => {
+                            self.couch_setup_state.slots.len()
                         }
+                        crate::big_picture::setup::CouchSetupStep::ScreenLayout => {
+                            crate::big_picture::setup::AVAILABLE_LAYOUTS.len()
+                        }
+                        crate::big_picture::setup::CouchSetupStep::GameOptions => self
+                            .selected_game
+                            .as_ref()
+                            .and_then(|g| {
+                                self.handlers
+                                    .iter()
+                                    .find(|h| &h.game_name == g || &h.guid == g)
+                            })
+                            .map(|h| h.options.len())
+                            .unwrap_or(0),
                         crate::big_picture::setup::CouchSetupStep::Launch => 0,
                     };
                     if self.couch_setup_state.focused_slot < max_slots {
                         self.couch_setup_state.focused_slot += 1;
                     }
-                    if self.couch_setup_state.current_step == crate::big_picture::setup::CouchSetupStep::ScreenLayout
-                        && self.couch_setup_state.focused_slot < crate::big_picture::setup::AVAILABLE_LAYOUTS.len()
+                    if self.couch_setup_state.current_step
+                        == crate::big_picture::setup::CouchSetupStep::ScreenLayout
+                        && self.couch_setup_state.focused_slot
+                            < crate::big_picture::setup::AVAILABLE_LAYOUTS.len()
                     {
-                        self.couch_setup_state.selected_layout = crate::big_picture::setup::AVAILABLE_LAYOUTS[self.couch_setup_state.focused_slot].to_string();
+                        self.couch_setup_state.selected_layout =
+                            crate::big_picture::setup::AVAILABLE_LAYOUTS
+                                [self.couch_setup_state.focused_slot]
+                                .to_string();
                         self.selected_layout = self.couch_setup_state.selected_layout.clone();
                     }
                 }
@@ -454,7 +474,10 @@ impl MainWindow {
                     match self.carousel_state.focus_zone {
                         crate::big_picture::carousel::CarouselFocusZone::HeroBanner(btn_idx) => {
                             if btn_idx > 0 {
-                                self.carousel_state.focus_zone = crate::big_picture::carousel::CarouselFocusZone::HeroBanner(btn_idx - 1);
+                                self.carousel_state.focus_zone =
+                                    crate::big_picture::carousel::CarouselFocusZone::HeroBanner(
+                                        btn_idx - 1,
+                                    );
                             }
                         }
                         crate::big_picture::carousel::CarouselFocusZone::HeaderTabs => {
@@ -497,7 +520,9 @@ impl MainWindow {
                 } else if self.big_picture_screen == BigPictureScreen::CouchSetup {
                     match self.couch_setup_state.current_step {
                         crate::big_picture::setup::CouchSetupStep::Players => {
-                            if self.couch_setup_state.focused_slot == self.couch_setup_state.slots.len() {
+                            if self.couch_setup_state.focused_slot
+                                == self.couch_setup_state.slots.len()
+                            {
                                 self.couch_setup_state.focused_slot = 0;
                             } else {
                                 self.couch_setup_state.navigate_slot_left();
@@ -508,13 +533,26 @@ impl MainWindow {
                         }
                         crate::big_picture::setup::CouchSetupStep::GameOptions => {
                             let cur_slot = self.couch_setup_state.focused_slot;
-                            if let Some(h) = self.selected_game.as_ref().and_then(|g| self.handlers.iter().find(|h| &h.game_name == g || &h.guid == g)) {
+                            if let Some(h) = self.selected_game.as_ref().and_then(|g| {
+                                self.handlers
+                                    .iter()
+                                    .find(|h| &h.game_name == g || &h.guid == g)
+                            }) {
                                 if let Some(opt) = h.options.get(cur_slot) {
-                                    let cur_val = self.selected_handler_options.get(&opt.key).cloned().unwrap_or_else(|| opt.values.first().cloned().unwrap_or_default());
-                                    if let Some(pos) = opt.values.iter().position(|v| v == &cur_val) {
-                                        let prev_idx = (pos + opt.values.len() - 1) % opt.values.len();
+                                    let cur_val = self
+                                        .selected_handler_options
+                                        .get(&opt.key)
+                                        .cloned()
+                                        .unwrap_or_else(|| {
+                                            opt.values.first().cloned().unwrap_or_default()
+                                        });
+                                    if let Some(pos) = opt.values.iter().position(|v| v == &cur_val)
+                                    {
+                                        let prev_idx =
+                                            (pos + opt.values.len() - 1) % opt.values.len();
                                         if let Some(nv) = opt.values.get(prev_idx) {
-                                            self.selected_handler_options.insert(opt.key.clone(), nv.clone());
+                                            self.selected_handler_options
+                                                .insert(opt.key.clone(), nv.clone());
                                         }
                                     }
                                 }
@@ -534,7 +572,10 @@ impl MainWindow {
                     match self.carousel_state.focus_zone {
                         crate::big_picture::carousel::CarouselFocusZone::HeroBanner(btn_idx) => {
                             if btn_idx < 2 {
-                                self.carousel_state.focus_zone = crate::big_picture::carousel::CarouselFocusZone::HeroBanner(btn_idx + 1);
+                                self.carousel_state.focus_zone =
+                                    crate::big_picture::carousel::CarouselFocusZone::HeroBanner(
+                                        btn_idx + 1,
+                                    );
                             }
                         }
                         crate::big_picture::carousel::CarouselFocusZone::HeaderTabs => {
@@ -578,23 +619,46 @@ impl MainWindow {
                 } else if self.big_picture_screen == BigPictureScreen::CouchSetup {
                     match self.couch_setup_state.current_step {
                         crate::big_picture::setup::CouchSetupStep::Players => {
-                            self.couch_setup_state.focused_slot = self.couch_setup_state.slots.len();
+                            self.couch_setup_state.focused_slot =
+                                self.couch_setup_state.slots.len();
                         }
                         crate::big_picture::setup::CouchSetupStep::ScreenLayout => {
-                            self.couch_setup_state.focused_slot = crate::big_picture::setup::AVAILABLE_LAYOUTS.len();
+                            self.couch_setup_state.focused_slot =
+                                crate::big_picture::setup::AVAILABLE_LAYOUTS.len();
                         }
                         crate::big_picture::setup::CouchSetupStep::GameOptions => {
                             let cur_slot = self.couch_setup_state.focused_slot;
-                            let opts_len = self.selected_game.as_ref().and_then(|g| self.handlers.iter().find(|h| &h.game_name == g || &h.guid == g)).map(|h| h.options.len()).unwrap_or(0);
+                            let opts_len = self
+                                .selected_game
+                                .as_ref()
+                                .and_then(|g| {
+                                    self.handlers
+                                        .iter()
+                                        .find(|h| &h.game_name == g || &h.guid == g)
+                                })
+                                .map(|h| h.options.len())
+                                .unwrap_or(0);
                             if cur_slot >= opts_len {
                                 // Already on next button
-                            } else if let Some(h) = self.selected_game.as_ref().and_then(|g| self.handlers.iter().find(|h| &h.game_name == g || &h.guid == g)) {
+                            } else if let Some(h) = self.selected_game.as_ref().and_then(|g| {
+                                self.handlers
+                                    .iter()
+                                    .find(|h| &h.game_name == g || &h.guid == g)
+                            }) {
                                 if let Some(opt) = h.options.get(cur_slot) {
-                                    let cur_val = self.selected_handler_options.get(&opt.key).cloned().unwrap_or_else(|| opt.values.first().cloned().unwrap_or_default());
-                                    if let Some(pos) = opt.values.iter().position(|v| v == &cur_val) {
+                                    let cur_val = self
+                                        .selected_handler_options
+                                        .get(&opt.key)
+                                        .cloned()
+                                        .unwrap_or_else(|| {
+                                            opt.values.first().cloned().unwrap_or_default()
+                                        });
+                                    if let Some(pos) = opt.values.iter().position(|v| v == &cur_val)
+                                    {
                                         let next_idx = (pos + 1) % opt.values.len();
                                         if let Some(nv) = opt.values.get(next_idx) {
-                                            self.selected_handler_options.insert(opt.key.clone(), nv.clone());
+                                            self.selected_handler_options
+                                                .insert(opt.key.clone(), nv.clone());
                                         }
                                     }
                                 }
@@ -627,8 +691,14 @@ impl MainWindow {
                                 self.carousel_state.search_input_open = true;
                                 cx.notify();
                             } else {
-                                let filtered = self.carousel_state.filter_and_sort_handlers(&self.handlers, &self.carousel_state.search_query);
-                                let target = filtered.get(self.carousel_state.selected_index).map(|h| h.game_name.clone()).or_else(|| self.selected_game.clone());
+                                let filtered = self.carousel_state.filter_and_sort_handlers(
+                                    &self.handlers,
+                                    &self.carousel_state.search_query,
+                                );
+                                let target = filtered
+                                    .get(self.carousel_state.selected_index)
+                                    .map(|h| h.game_name.clone())
+                                    .or_else(|| self.selected_game.clone());
                                 if let Some(name) = target {
                                     if btn_idx == 0 {
                                         self.enter_couch_setup(&name, cx);
@@ -671,15 +741,40 @@ impl MainWindow {
                     }
                 } else if self.big_picture_screen == BigPictureScreen::GameManagement {
                     let target_game = self.selected_game.clone().unwrap_or_default();
-                    let handler_opt = self.handlers.iter().find(|h| h.game_name == target_game || h.guid == target_game).cloned();
+                    let handler_opt = self
+                        .handlers
+                        .iter()
+                        .find(|h| h.game_name == target_game || h.guid == target_game)
+                        .cloned();
                     let h_path = handler_opt.as_ref().and_then(|h| h.handler_path.clone());
-                    let h_guid = handler_opt.as_ref().map(|h| h.guid.clone()).unwrap_or_default();
+                    let h_guid = handler_opt
+                        .as_ref()
+                        .map(|h| h.guid.clone())
+                        .unwrap_or_default();
                     let exe_path = handler_opt.as_ref().and_then(|h| h.executable_path.clone());
                     match self.management_focus_index {
-                        0 => self.open_game_handler_file(h_path.as_deref(), &h_guid, &target_game, cx),
+                        0 => self.open_game_handler_file(
+                            h_path.as_deref(),
+                            &h_guid,
+                            &target_game,
+                            cx,
+                        ),
                         1 => {
-                            let is_on_press = self.app_settings.custom_preferences.get(&format!("{}:gamepad_mode", h_guid)).map(|v| v == "on_button_press").unwrap_or(true);
-                            self.set_gamepad_mode_preference(&h_guid, if is_on_press { "by_index" } else { "on_button_press" }, cx);
+                            let is_on_press = self
+                                .app_settings
+                                .custom_preferences
+                                .get(&format!("{}:gamepad_mode", h_guid))
+                                .map(|v| v == "on_button_press")
+                                .unwrap_or(true);
+                            self.set_gamepad_mode_preference(
+                                &h_guid,
+                                if is_on_press {
+                                    "by_index"
+                                } else {
+                                    "on_button_press"
+                                },
+                                cx,
+                            );
                         }
                         2 => self.open_game_exe_path(exe_path.as_deref(), &target_game, cx),
                         3 => self.cycle_steam_language_preference(&h_guid, cx),
@@ -717,17 +812,38 @@ impl MainWindow {
                         }
                         crate::big_picture::setup::CouchSetupStep::GameOptions => {
                             let cur_slot = self.couch_setup_state.focused_slot;
-                            let opts_len = self.selected_game.as_ref().and_then(|g| self.handlers.iter().find(|h| &h.game_name == g || &h.guid == g)).map(|h| h.options.len()).unwrap_or(0);
+                            let opts_len = self
+                                .selected_game
+                                .as_ref()
+                                .and_then(|g| {
+                                    self.handlers
+                                        .iter()
+                                        .find(|h| &h.game_name == g || &h.guid == g)
+                                })
+                                .map(|h| h.options.len())
+                                .unwrap_or(0);
                             if cur_slot >= opts_len {
                                 self.couch_setup_state.next_step();
                                 self.couch_setup_state.focused_slot = 0;
-                            } else if let Some(h) = self.selected_game.as_ref().and_then(|g| self.handlers.iter().find(|h| &h.game_name == g || &h.guid == g)) {
+                            } else if let Some(h) = self.selected_game.as_ref().and_then(|g| {
+                                self.handlers
+                                    .iter()
+                                    .find(|h| &h.game_name == g || &h.guid == g)
+                            }) {
                                 if let Some(opt) = h.options.get(cur_slot) {
-                                    let cur_val = self.selected_handler_options.get(&opt.key).cloned().unwrap_or_else(|| opt.values.first().cloned().unwrap_or_default());
-                                    if let Some(pos) = opt.values.iter().position(|v| v == &cur_val) {
+                                    let cur_val = self
+                                        .selected_handler_options
+                                        .get(&opt.key)
+                                        .cloned()
+                                        .unwrap_or_else(|| {
+                                            opt.values.first().cloned().unwrap_or_default()
+                                        });
+                                    if let Some(pos) = opt.values.iter().position(|v| v == &cur_val)
+                                    {
                                         let next_idx = (pos + 1) % opt.values.len();
                                         if let Some(nv) = opt.values.get(next_idx) {
-                                            self.selected_handler_options.insert(opt.key.clone(), nv.clone());
+                                            self.selected_handler_options
+                                                .insert(opt.key.clone(), nv.clone());
                                         }
                                     }
                                 }
@@ -752,7 +868,8 @@ impl MainWindow {
                         let pkgs = self.get_filtered_couch_hub_packages();
                         if self.couch_hub_state.selected_index < pkgs.len() {
                             let pkg = pkgs[self.couch_hub_state.selected_index];
-                            let is_installed = self.is_handler_or_pkg_installed(&pkg.id, &pkg.game_name);
+                            let is_installed =
+                                self.is_handler_or_pkg_installed(&pkg.id, &pkg.game_name);
                             if is_installed {
                                 self.selected_game = Some(pkg.game_name.clone());
                                 self.big_picture_screen = BigPictureScreen::GameDetails;
@@ -787,7 +904,11 @@ impl MainWindow {
                             let prof_idx = self.sessions_focus_index.saturating_sub(1);
                             let saved = self.get_all_saved_profiles_items();
                             if let Some(prof) = saved.get(prof_idx) {
-                                self.load_saved_profile_by_number(&prof.game_guid, prof.profile_number, cx);
+                                self.load_saved_profile_by_number(
+                                    &prof.game_guid,
+                                    prof.profile_number,
+                                    cx,
+                                );
                             }
                         }
                     }
@@ -797,18 +918,29 @@ impl MainWindow {
                     } else if self.big_picture_settings_tab == 0 {
                         match self.settings_item_index {
                             0 => {
-                                self.app_settings.start_in_big_picture = !self.app_settings.start_in_big_picture;
+                                self.app_settings.start_in_big_picture =
+                                    !self.app_settings.start_in_big_picture;
                                 let _ = self.app_settings.save();
                                 self.show_osd("Setting saved", 1200, cx);
                                 cx.notify();
                             }
                             1 => self.cycle_interface_scale_preference(cx),
                             2 => self.cycle_preferred_display_preference(cx),
-                            3 => { self.show_osd("Sound effects toggled", 1200, cx); cx.notify(); }
-                            4 => { self.show_osd("English (Default)", 1200, cx); cx.notify(); }
-                            5 => { self.show_osd("Auto-updates enabled", 1200, cx); cx.notify(); }
+                            3 => {
+                                self.show_osd("Sound effects toggled", 1200, cx);
+                                cx.notify();
+                            }
+                            4 => {
+                                self.show_osd("English (Default)", 1200, cx);
+                                cx.notify();
+                            }
+                            5 => {
+                                self.show_osd("Auto-updates enabled", 1200, cx);
+                                cx.notify();
+                            }
                             6 => {
-                                self.app_settings.developer_mode = !self.app_settings.developer_mode;
+                                self.app_settings.developer_mode =
+                                    !self.app_settings.developer_mode;
                                 let _ = self.app_settings.save();
                                 self.show_osd(
                                     if self.app_settings.developer_mode {
@@ -869,7 +1001,9 @@ impl MainWindow {
                 } else if self.big_picture_screen == BigPictureScreen::CouchSetup {
                     if self.couch_setup_state.grabbed_slot.is_some() {
                         self.couch_setup_state.cancel_grab();
-                    } else if self.couch_setup_state.current_step != crate::big_picture::setup::CouchSetupStep::Players {
+                    } else if self.couch_setup_state.current_step
+                        != crate::big_picture::setup::CouchSetupStep::Players
+                    {
                         self.couch_setup_state.prev_step();
                     } else {
                         self.big_picture_screen = BigPictureScreen::GameDetails;
@@ -976,7 +1110,8 @@ impl MainWindow {
             for opt in &handler.options {
                 if !self.selected_handler_options.contains_key(&opt.key) {
                     if let Some(first_val) = opt.values.first() {
-                        self.selected_handler_options.insert(opt.key.clone(), first_val.clone());
+                        self.selected_handler_options
+                            .insert(opt.key.clone(), first_val.clone());
                     }
                 }
             }
@@ -1077,5 +1212,4 @@ impl MainWindow {
         self.detected_devices_list = devices;
         self.sync_player_assignments();
     }
-
 }

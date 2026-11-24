@@ -14,7 +14,8 @@ use tokio::net::windows::named_pipe::ClientOptions;
 fn test_e2e_pe_inspection_and_architecture_validation() {
     let kernel32_path = Path::new(r"C:\Windows\System32\kernel32.dll");
     if kernel32_path.exists() {
-        let pe_info = PeInspector::inspect_file(kernel32_path).expect("Failed to parse kernel32.dll");
+        let pe_info =
+            PeInspector::inspect_file(kernel32_path).expect("Failed to parse kernel32.dll");
         assert_eq!(pe_info.is_64bit, cfg!(target_arch = "x86_64"));
         assert!(pe_info.exports.contains_key("LoadLibraryW"));
         assert!(pe_info.exports.contains_key("GetProcAddress"));
@@ -23,7 +24,10 @@ fn test_e2e_pe_inspection_and_architecture_validation() {
         // Current process compatibility check
         let current_pid = std::process::id();
         let compat = PeInspector::verify_compatibility(kernel32_path, current_pid);
-        assert!(compat.is_ok(), "kernel32 must be compatible with current process bitness");
+        assert!(
+            compat.is_ok(),
+            "kernel32 must be compatible with current process bitness"
+        );
     }
 }
 
@@ -37,9 +41,11 @@ fn test_e2e_memory_engine_full_workflow() {
     // 2. AOB Pattern scan with wildcard mask
     let pattern = [0xAA, 0x00, 0xCC, 0xDD];
     let mask = "x?xx";
-    let matches = MemoryEngine::aob_scan(current_pid, &pattern, mask)
-        .expect("AOB scan failed");
-    assert!(!matches.is_empty(), "Must find at least one match for buffer pattern");
+    let matches = MemoryEngine::aob_scan(current_pid, &pattern, mask).expect("AOB scan failed");
+    assert!(
+        !matches.is_empty(),
+        "Must find at least one match for buffer pattern"
+    );
 
     // 3. Multi-level pointer chain resolution
     #[repr(C)]
@@ -65,8 +71,9 @@ fn test_e2e_memory_engine_full_workflow() {
 
     let offsets = vec![8, 16];
     let is_64bit = std::mem::size_of::<usize>() == 8;
-    let resolved_addr = MemoryEngine::resolve_pointer_chain(current_pid, base_ptr, &offsets, is_64bit)
-        .expect("Failed to resolve pointer chain");
+    let resolved_addr =
+        MemoryEngine::resolve_pointer_chain(current_pid, base_ptr, &offsets, is_64bit)
+            .expect("Failed to resolve pointer chain");
 
     let val: i32 = MemoryEngine::read_value(current_pid, resolved_addr).expect("Read value failed");
     assert_eq!(val, 1337);
@@ -75,7 +82,11 @@ fn test_e2e_memory_engine_full_workflow() {
     let freeze_target = buffer_addr + 4; // points to 0xBB
     let original: u32 = MemoryEngine::read_value(current_pid, freeze_target).expect("Read failed");
     let freeze_val: u32 = 0x99999999;
-    let slot_id = MemoryEngine::freeze_value(current_pid, freeze_target, freeze_val.to_ne_bytes().to_vec());
+    let slot_id = MemoryEngine::freeze_value(
+        current_pid,
+        freeze_target,
+        freeze_val.to_ne_bytes().to_vec(),
+    );
 
     // Tamper with memory
     let tampered: u32 = 0x12345678;
@@ -86,7 +97,10 @@ fn test_e2e_memory_engine_full_workflow() {
     // Heartbeat tick enforces frozen value
     MemoryEngine::apply_frozen_slots();
     let restored: u32 = MemoryEngine::read_value(current_pid, freeze_target).expect("Read failed");
-    assert_eq!(restored, freeze_val, "Frozen value must be restored on heartbeat tick");
+    assert_eq!(
+        restored, freeze_val,
+        "Frozen value must be restored on heartbeat tick"
+    );
 
     // Unfreeze and restore original
     assert!(MemoryEngine::unfreeze_value(slot_id));
@@ -114,15 +128,27 @@ async fn test_e2e_named_pipe_and_shared_memory_ipc() {
 
         let payload = b"{\"msg_type\":\"SetPlayerSlot\",\"slot\":1}";
         let len_prefix = (payload.len() as u32).to_le_bytes();
-        client.write_all(&len_prefix).await.expect("Failed to write len");
-        client.write_all(payload).await.expect("Failed to write payload");
+        client
+            .write_all(&len_prefix)
+            .await
+            .expect("Failed to write len");
+        client
+            .write_all(payload)
+            .await
+            .expect("Failed to write payload");
         client.flush().await.expect("Failed to flush");
 
         let mut reply_len_buf = [0u8; 4];
-        client.read_exact(&mut reply_len_buf).await.expect("Failed to read reply len");
+        client
+            .read_exact(&mut reply_len_buf)
+            .await
+            .expect("Failed to read reply len");
         let reply_len = u32::from_le_bytes(reply_len_buf) as usize;
         let mut reply_buf = vec![0u8; reply_len];
-        client.read_exact(&mut reply_buf).await.expect("Failed to read reply payload");
+        client
+            .read_exact(&mut reply_buf)
+            .await
+            .expect("Failed to read reply payload");
 
         String::from_utf8(reply_buf).expect("Reply not valid UTF-8")
     });
@@ -135,7 +161,8 @@ async fn test_e2e_named_pipe_and_shared_memory_ipc() {
     let reply = IpcMessage::from_json(&serde_json::json!({
         "status": "ok",
         "acknowledged": true
-    })).expect("Failed to serialize reply");
+    }))
+    .expect("Failed to serialize reply");
     connection.send(&reply).await.expect("Failed to send reply");
 
     let client_reply = client_task.await.expect("Client task failed");
@@ -145,10 +172,12 @@ async fn test_e2e_named_pipe_and_shared_memory_ipc() {
     let shm_name = format!("Local\\nucleus_e2e_shm_{}", test_id);
     let mut shm = SharedMemorySegment::create(&shm_name, 1024)
         .expect("Failed to create shared memory segment");
-    shm.write_bytes(0, b"HELLO_SPLITSCREEN_IPC").expect("Failed to write to shared memory");
+    shm.write_bytes(0, b"HELLO_SPLITSCREEN_IPC")
+        .expect("Failed to write to shared memory");
 
     let mut read_buf = vec![0u8; 21];
-    shm.read_bytes(0, &mut read_buf).expect("Failed to read from shared memory");
+    shm.read_bytes(0, &mut read_buf)
+        .expect("Failed to read from shared memory");
     assert_eq!(&read_buf, b"HELLO_SPLITSCREEN_IPC");
 }
 
@@ -171,6 +200,7 @@ fn test_e2e_dll_injection_config_validation() {
 
     // Verify JSON serialization roundtrip
     let json = serde_json::to_string(&cfg).expect("JSON serialize failed");
-    let deserialized: DllInjectionConfig = serde_json::from_str(&json).expect("JSON deserialize failed");
+    let deserialized: DllInjectionConfig =
+        serde_json::from_str(&json).expect("JSON deserialize failed");
     assert_eq!(cfg, deserialized);
 }

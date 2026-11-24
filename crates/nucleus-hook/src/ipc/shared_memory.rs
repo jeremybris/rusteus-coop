@@ -4,14 +4,14 @@ use nucleus_common::error::{NucleusError, NucleusResult};
 use std::ffi::c_void;
 
 #[cfg(windows)]
-use windows::core::PCWSTR;
-#[cfg(windows)]
 use windows::Win32::Foundation::{CloseHandle, HANDLE, INVALID_HANDLE_VALUE};
 #[cfg(windows)]
 use windows::Win32::System::Memory::{
-    CreateFileMappingW, MapViewOfFile, OpenFileMappingW, UnmapViewOfFile,
-    FILE_MAP_ALL_ACCESS, MEMORY_MAPPED_VIEW_ADDRESS, PAGE_READWRITE,
+    CreateFileMappingW, FILE_MAP_ALL_ACCESS, MEMORY_MAPPED_VIEW_ADDRESS, MapViewOfFile,
+    OpenFileMappingW, PAGE_READWRITE, UnmapViewOfFile,
 };
+#[cfg(windows)]
+use windows::core::PCWSTR;
 
 /// High-performance shared memory segment for telemetry and zero-copy game state exchange.
 pub struct SharedMemorySegment {
@@ -33,7 +33,9 @@ impl SharedMemorySegment {
         #[cfg(windows)]
         {
             if size == 0 {
-                return Err(NucleusError::Ipc("Shared memory size must be greater than zero".into()));
+                return Err(NucleusError::Ipc(
+                    "Shared memory size must be greater than zero".into(),
+                ));
             }
 
             let wide_name: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
@@ -46,16 +48,21 @@ impl SharedMemorySegment {
                     size as u32,
                     PCWSTR::from_raw(wide_name.as_ptr()),
                 )
-            }.map_err(|e| NucleusError::Ipc(format!("CreateFileMappingW failed for '{name}': {e}")))?;
+            }
+            .map_err(|e| {
+                NucleusError::Ipc(format!("CreateFileMappingW failed for '{name}': {e}"))
+            })?;
 
-            let view = unsafe {
-                MapViewOfFile(handle, FILE_MAP_ALL_ACCESS, 0, 0, size)
-            };
+            let view = unsafe { MapViewOfFile(handle, FILE_MAP_ALL_ACCESS, 0, 0, size) };
 
             if view.Value.is_null() {
                 let err = std::io::Error::last_os_error();
-                unsafe { let _ = CloseHandle(handle); }
-                return Err(NucleusError::Ipc(format!("MapViewOfFile failed for '{name}': {err}")));
+                unsafe {
+                    let _ = CloseHandle(handle);
+                }
+                return Err(NucleusError::Ipc(format!(
+                    "MapViewOfFile failed for '{name}': {err}"
+                )));
             }
 
             Ok(Self {
@@ -68,7 +75,9 @@ impl SharedMemorySegment {
         #[cfg(not(windows))]
         {
             let _ = (name, size);
-            Err(NucleusError::Platform("Shared memory is only supported on Windows".into()))
+            Err(NucleusError::Platform(
+                "Shared memory is only supported on Windows".into(),
+            ))
         }
     }
 
@@ -83,17 +92,20 @@ impl SharedMemorySegment {
                     false,
                     PCWSTR::from_raw(wide_name.as_ptr()),
                 )
-            }.map_err(|e| NucleusError::Ipc(format!("OpenFileMappingW failed for '{name}': {e}")))?;
+            }
+            .map_err(|e| NucleusError::Ipc(format!("OpenFileMappingW failed for '{name}': {e}")))?;
 
             // Map full view (0 bytes to map = entire mapped file)
-            let view = unsafe {
-                MapViewOfFile(handle, FILE_MAP_ALL_ACCESS, 0, 0, 0)
-            };
+            let view = unsafe { MapViewOfFile(handle, FILE_MAP_ALL_ACCESS, 0, 0, 0) };
 
             if view.Value.is_null() {
                 let err = std::io::Error::last_os_error();
-                unsafe { let _ = CloseHandle(handle); }
-                return Err(NucleusError::Ipc(format!("MapViewOfFile failed for '{name}': {err}")));
+                unsafe {
+                    let _ = CloseHandle(handle);
+                }
+                return Err(NucleusError::Ipc(format!(
+                    "MapViewOfFile failed for '{name}': {err}"
+                )));
             }
 
             // Determine mapped file size via VirtualQuery
@@ -122,7 +134,9 @@ impl SharedMemorySegment {
         #[cfg(not(windows))]
         {
             let _ = name;
-            Err(NucleusError::Platform("Shared memory is only supported on Windows".into()))
+            Err(NucleusError::Platform(
+                "Shared memory is only supported on Windows".into(),
+            ))
         }
     }
 
@@ -148,7 +162,10 @@ impl SharedMemorySegment {
 
     /// Writes a slice of bytes into the shared memory segment at the given byte offset.
     pub fn write_bytes(&mut self, offset: usize, data: &[u8]) -> NucleusResult<()> {
-        if offset.checked_add(data.len()).map_or(true, |end| end > self.size) {
+        if offset
+            .checked_add(data.len())
+            .map_or(true, |end| end > self.size)
+        {
             return Err(NucleusError::Ipc(format!(
                 "Write out of bounds: offset {} + len {} exceeds shared memory size {}",
                 offset,
@@ -165,7 +182,10 @@ impl SharedMemorySegment {
 
     /// Reads a slice of bytes from the shared memory segment at the given byte offset into a buffer.
     pub fn read_bytes(&self, offset: usize, buffer: &mut [u8]) -> NucleusResult<()> {
-        if offset.checked_add(buffer.len()).map_or(true, |end| end > self.size) {
+        if offset
+            .checked_add(buffer.len())
+            .map_or(true, |end| end > self.size)
+        {
             return Err(NucleusError::Ipc(format!(
                 "Read out of bounds: offset {} + len {} exceeds shared memory size {}",
                 offset,

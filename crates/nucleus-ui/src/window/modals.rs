@@ -56,7 +56,10 @@ impl MainWindow {
     }
 
     /// Renders the interactive physical keypress recording modal dialog when active.
-    pub(super) fn render_hotkey_recording_modal(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+    pub(super) fn render_hotkey_recording_modal(
+        &self,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
         if let Some(ref target) = self.settings_view.recording_hotkey {
             let target_name = match target.as_str() {
                 "lock" => "Lock Inputs Toggle Key (Default: End)".to_string(),
@@ -93,7 +96,6 @@ impl MainWindow {
         }
         None
     }
-
 
     /// Executes the action confirmed by the user in `CouchConfirmDialog`.
     pub fn execute_confirm_action(
@@ -722,7 +724,10 @@ impl MainWindow {
     }
 
     /// Renders the legacy controller shortcuts setup modal matching XInputShortcutsSetup (media_1793137385955_044e590e.png).
-    pub(super) fn render_controller_shortcuts_modal(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+    pub(super) fn render_controller_shortcuts_modal(
+        &self,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
         if !self.show_controller_shortcuts_modal {
             return None;
         }
@@ -1704,4 +1709,3 @@ pub fn format_gamepad_button_glyph(button_code: &str, is_ps: bool) -> &'static s
         _ => "•",
     }
 }
-

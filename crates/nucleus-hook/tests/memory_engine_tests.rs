@@ -12,8 +12,8 @@ mod windows_tests {
         let mut target_val: i32 = 1337;
         let addr = &mut target_val as *mut i32 as usize;
 
-        let read_back: i32 = MemoryEngine::read_value(current_pid, addr)
-            .expect("Failed to read primitive value");
+        let read_back: i32 =
+            MemoryEngine::read_value(current_pid, addr).expect("Failed to read primitive value");
         assert_eq!(read_back, 1337);
 
         // Write new value
@@ -24,8 +24,8 @@ mod windows_tests {
         // Test float read/write
         let mut target_float: f32 = 3.14159;
         let float_addr = &mut target_float as *mut f32 as usize;
-        let read_float: f32 = MemoryEngine::read_value(current_pid, float_addr)
-            .expect("Failed to read float");
+        let read_float: f32 =
+            MemoryEngine::read_value(current_pid, float_addr).expect("Failed to read float");
         assert!((read_float - 3.14159).abs() < 0.0001);
 
         MemoryEngine::write_value(current_pid, float_addr, &2.71828f32)
@@ -39,8 +39,8 @@ mod windows_tests {
 
         // Create buffer with known unique sequence
         let buffer: Vec<u8> = vec![
-            0xAA, 0xBB, 0x11, 0x22, 0x33, 0x44, 0xCC, 0xDD,
-            0xDE, 0xAD, 0xBE, 0xEF, 0x77, 0x88, 0x99, 0x00,
+            0xAA, 0xBB, 0x11, 0x22, 0x33, 0x44, 0xCC, 0xDD, 0xDE, 0xAD, 0xBE, 0xEF, 0x77, 0x88,
+            0x99, 0x00,
         ];
         let buf_addr = buffer.as_ptr() as usize;
 
@@ -54,7 +54,8 @@ mod windows_tests {
             buffer.len(),
             &exact_pattern,
             exact_mask,
-        ).expect("Exact AOB scan failed");
+        )
+        .expect("Exact AOB scan failed");
 
         assert_eq!(matches.len(), 1);
         assert_eq!(matches[0], buf_addr + 8);
@@ -68,7 +69,8 @@ mod windows_tests {
             buffer.len(),
             &wildcard_pattern,
             wildcard_mask,
-        ).expect("Wildcard AOB scan failed");
+        )
+        .expect("Wildcard AOB scan failed");
 
         assert_eq!(wildcard_matches.len(), 1);
         assert_eq!(wildcard_matches[0], buf_addr + 8);
@@ -99,7 +101,8 @@ mod windows_tests {
             base_addr,
             &[offset0, offset1],
             cfg!(target_pointer_width = "64"),
-        ).expect("Failed to resolve pointer chain");
+        )
+        .expect("Failed to resolve pointer chain");
 
         let expected_addr = &second_struct[4] as *const u32 as usize;
         assert_eq!(resolved, expected_addr);

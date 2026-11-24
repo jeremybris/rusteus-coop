@@ -271,8 +271,16 @@ impl ProtoInputExtras {
         );
 
         for (wanted, id, name) in [
-            (cfg.get_cursor_info_hook, HOOK_ID_GET_CURSOR_INFO, "GetCursorInfoHook"),
-            (cfg.set_windows_hook_hook, HOOK_ID_SET_WINDOWS_HOOK, "SetWindowsHookHook"),
+            (
+                cfg.get_cursor_info_hook,
+                HOOK_ID_GET_CURSOR_INFO,
+                "GetCursorInfoHook",
+            ),
+            (
+                cfg.set_windows_hook_hook,
+                HOOK_ID_SET_WINDOWS_HOOK,
+                "SetWindowsHookHook",
+            ),
         ] {
             if !wanted {
                 continue;
@@ -311,13 +319,45 @@ impl ProtoInputExtras {
                 unsafe {
                     keys(
                         instance_handle,
-                        k[0], k[1], k[2], k[3], k[4], k[5], k[6], k[7], k[8], k[9], k[10],
-                        k[11], k[12], k[13], k[14], k[15], k[16], k[17], k[18], k[19], k[20],
+                        k[0],
+                        k[1],
+                        k[2],
+                        k[3],
+                        k[4],
+                        k[5],
+                        k[6],
+                        k[7],
+                        k[8],
+                        k[9],
+                        k[10],
+                        k[11],
+                        k[12],
+                        k[13],
+                        k[14],
+                        k[15],
+                        k[16],
+                        k[17],
+                        k[18],
+                        k[19],
+                        k[20],
                     );
                     switches(
                         instance_handle,
-                        c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8], c[9], c[10],
-                        c[11], c[12], c[13], c[14],
+                        c[0],
+                        c[1],
+                        c[2],
+                        c[3],
+                        c[4],
+                        c[5],
+                        c[6],
+                        c[7],
+                        c[8],
+                        c[9],
+                        c[10],
+                        c[11],
+                        c[12],
+                        c[13],
+                        c[14],
                     );
                 }
             }
@@ -343,10 +383,17 @@ mod tests {
         assert_eq!(k[0], 70, "handler binding is kept");
         assert_eq!(k[1], b'C' as i32);
         assert_eq!(k[4], VK_SPACE);
-        assert_eq!(&k[12..16], &[b'D' as i32, b'A' as i32, b'W' as i32, b'S' as i32]);
+        assert_eq!(
+            &k[12..16],
+            &[b'D' as i32, b'A' as i32, b'W' as i32, b'S' as i32]
+        );
         assert_eq!((k[16], k[17]), (VK_ESCAPE, VK_RETURN));
         assert_eq!((k[18], k[19], k[20]), (12, 4, 9000));
-        assert_eq!((k[10], k[11]), (0, 0), "stick clicks have no default binding");
+        assert_eq!(
+            (k[10], k[11]),
+            (0, 0),
+            "stick clicks have no default binding"
+        );
     }
 
     #[test]
@@ -371,7 +418,11 @@ mod tests {
                 "ScaleFromX/ScaleFromY"
             ]
         );
-        assert!(extras.apply(1, &ProtoInputExtraConfig::default(), (1, 1)).is_empty());
+        assert!(
+            extras
+                .apply(1, &ProtoInputExtraConfig::default(), (1, 1))
+                .is_empty()
+        );
     }
 
     static CALLS: Mutex<Vec<String>> = Mutex::new(Vec::new());
@@ -383,7 +434,10 @@ mod tests {
         CALLS.lock().unwrap().push(format!("m2x {h} {v}"));
     }
     unsafe extern "C" fn rec_scale(h: u32, ox: i32, oy: i32, nx: i32, ny: i32) {
-        CALLS.lock().unwrap().push(format!("scale {h} {ox}x{oy}->{nx}x{ny}"));
+        CALLS
+            .lock()
+            .unwrap()
+            .push(format!("scale {h} {ox}x{oy}->{nx}x{ny}"));
     }
     unsafe extern "C" fn rec_hook(h: u32, id: u32) {
         CALLS.lock().unwrap().push(format!("hook {h} {id}"));

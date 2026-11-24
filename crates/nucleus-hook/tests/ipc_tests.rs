@@ -12,7 +12,8 @@ mod windows_tests {
     #[tokio::test]
     async fn test_named_pipe_ipc_roundtrip() {
         let pipe_name = format!(r"\\.\pipe\nucleus_test_{}", Uuid::new_v4());
-        let server = NamedPipeIpcServer::bind(&pipe_name).expect("Failed to bind NamedPipeIpcServer");
+        let server =
+            NamedPipeIpcServer::bind(&pipe_name).expect("Failed to bind NamedPipeIpcServer");
 
         // Spawn a client task that connects, sends a message, and reads the reply
         let pipe_name_clone = pipe_name.clone();
@@ -25,16 +26,28 @@ mod windows_tests {
             // Send 4-byte length prefixed message: {"action":"ping","id":1}
             let payload = b"{\"action\":\"ping\",\"id\":1}";
             let len_prefix = (payload.len() as u32).to_le_bytes();
-            client.write_all(&len_prefix).await.expect("Failed to write len");
-            client.write_all(payload).await.expect("Failed to write payload");
+            client
+                .write_all(&len_prefix)
+                .await
+                .expect("Failed to write len");
+            client
+                .write_all(payload)
+                .await
+                .expect("Failed to write payload");
             client.flush().await.expect("Failed to flush");
 
             // Read 4-byte length prefixed reply
             let mut reply_len_buf = [0u8; 4];
-            client.read_exact(&mut reply_len_buf).await.expect("Failed to read reply len");
+            client
+                .read_exact(&mut reply_len_buf)
+                .await
+                .expect("Failed to read reply len");
             let reply_len = u32::from_le_bytes(reply_len_buf) as usize;
             let mut reply_buf = vec![0u8; reply_len];
-            client.read_exact(&mut reply_buf).await.expect("Failed to read reply payload");
+            client
+                .read_exact(&mut reply_buf)
+                .await
+                .expect("Failed to read reply payload");
 
             String::from_utf8(reply_buf).expect("Reply not valid UTF-8")
         });
@@ -49,7 +62,8 @@ mod windows_tests {
             "action": "pong",
             "id": 1,
             "status": "success"
-        })).expect("Failed to serialize reply");
+        }))
+        .expect("Failed to serialize reply");
         connection.send(&reply).await.expect("Failed to send reply");
 
         let client_reply = client_task.await.expect("Client task failed");
@@ -68,13 +82,17 @@ mod windows_tests {
 
         // Write magic and test data
         let test_data = b"Hello Nucleus Shared Memory!";
-        producer.write_bytes(0, test_data).expect("Failed to write bytes to producer");
+        producer
+            .write_bytes(0, test_data)
+            .expect("Failed to write bytes to producer");
 
         // Consumer opens existing segment
         let consumer = SharedMemorySegment::open(&shm_name)
             .expect("Failed to open existing shared memory segment");
         let mut read_buf = vec![0u8; test_data.len()];
-        consumer.read_bytes(0, &mut read_buf).expect("Failed to read bytes from consumer");
+        consumer
+            .read_bytes(0, &mut read_buf)
+            .expect("Failed to read bytes from consumer");
 
         assert_eq!(&read_buf, test_data);
     }

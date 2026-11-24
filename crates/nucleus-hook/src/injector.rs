@@ -12,14 +12,14 @@ use std::path::Path;
 use windows::Win32::Foundation::{CloseHandle, STILL_ACTIVE, WAIT_OBJECT_0};
 #[cfg(windows)]
 use windows::Win32::System::Diagnostics::ToolHelp::{
-    CreateToolhelp32Snapshot, Thread32First, Thread32Next, TH32CS_SNAPTHREAD, THREADENTRY32,
+    CreateToolhelp32Snapshot, TH32CS_SNAPTHREAD, THREADENTRY32, Thread32First, Thread32Next,
 };
 #[cfg(windows)]
 use windows::Win32::System::LibraryLoader::{GetModuleHandleA, GetProcAddress};
 #[cfg(windows)]
 use windows::Win32::System::Threading::{
     CreateRemoteThread, GetExitCodeProcess, GetExitCodeThread, OpenThread, QueueUserAPC,
-    WaitForSingleObject, THREAD_SET_CONTEXT,
+    THREAD_SET_CONTEXT, WaitForSingleObject,
 };
 
 /// Utilities for injecting custom dynamic libraries into remote target processes.
@@ -74,8 +74,8 @@ impl DllInjector {
         {
             use std::os::windows::ffi::OsStrExt;
 
-            let abs_path = std::fs::canonicalize(dll_path)
-                .unwrap_or_else(|_| dll_path.to_path_buf());
+            let abs_path =
+                std::fs::canonicalize(dll_path).unwrap_or_else(|_| dll_path.to_path_buf());
             let wide_path: Vec<u16> = abs_path
                 .as_os_str()
                 .encode_wide()
@@ -95,10 +95,7 @@ impl DllInjector {
                     }
                 };
 
-                let path_bytes = std::slice::from_raw_parts(
-                    wide_path.as_ptr() as *const u8,
-                    size,
-                );
+                let path_bytes = std::slice::from_raw_parts(wide_path.as_ptr() as *const u8, size);
                 if let Err(e) = mem_guard.write(path_bytes) {
                     let _ = CloseHandle(process);
                     return Err(e);
@@ -108,17 +105,23 @@ impl DllInjector {
                     Ok(k) => k,
                     Err(e) => {
                         let _ = CloseHandle(process);
-                        return Err(NucleusError::Platform(format!("Failed to get kernel32 handle: {}", e)));
+                        return Err(NucleusError::Platform(format!(
+                            "Failed to get kernel32 handle: {}",
+                            e
+                        )));
                     }
                 };
 
-                let load_library_w = match GetProcAddress(kernel32, windows::core::s!("LoadLibraryW")) {
-                    Some(f) => f,
-                    None => {
-                        let _ = CloseHandle(process);
-                        return Err(NucleusError::Platform("LoadLibraryW symbol not found in kernel32".to_string()));
-                    }
-                };
+                let load_library_w =
+                    match GetProcAddress(kernel32, windows::core::s!("LoadLibraryW")) {
+                        Some(f) => f,
+                        None => {
+                            let _ = CloseHandle(process);
+                            return Err(NucleusError::Platform(
+                                "LoadLibraryW symbol not found in kernel32".to_string(),
+                            ));
+                        }
+                    };
 
                 if config.method == nucleus_common::dll_injection::InjectionMethod::QueueUserApc {
                     let tid = match Self::find_primary_thread_id(pid) {
@@ -133,7 +136,10 @@ impl DllInjector {
                         Ok(t) => t,
                         Err(e) => {
                             let _ = CloseHandle(process);
-                            return Err(NucleusError::Platform(format!("Failed to open thread {}: {}", tid, e)));
+                            return Err(NucleusError::Platform(format!(
+                                "Failed to open thread {}: {}",
+                                tid, e
+                            )));
                         }
                     };
 
@@ -155,7 +161,11 @@ impl DllInjector {
                     // Leak memory guard so DLL path buffer remains valid until the suspended thread resumes
                     let leaked_addr = mem_guard.leak() as usize;
                     let _ = CloseHandle(process);
-                    tracing::info!("Queued QueueUserAPC on thread {} for DLL {:?}", tid, dll_path);
+                    tracing::info!(
+                        "Queued QueueUserAPC on thread {} for DLL {:?}",
+                        tid,
+                        dll_path
+                    );
                     return Ok(leaked_addr);
                 }
 
@@ -173,7 +183,10 @@ impl DllInjector {
                     Ok(th) => th,
                     Err(e) => {
                         let _ = CloseHandle(process);
-                        return Err(NucleusError::Platform(format!("CreateRemoteThread failed: {}", e)));
+                        return Err(NucleusError::Platform(format!(
+                            "CreateRemoteThread failed: {}",
+                            e
+                        )));
                     }
                 };
 
@@ -244,7 +257,9 @@ impl DllInjector {
         #[cfg(not(windows))]
         {
             let _ = (pid, config);
-            Err(NucleusError::Unsupported("DLL injection only supported on Windows".to_string()))
+            Err(NucleusError::Unsupported(
+                "DLL injection only supported on Windows".to_string(),
+            ))
         }
     }
 
@@ -263,15 +278,21 @@ impl DllInjector {
                     Ok(k) => k,
                     Err(e) => {
                         let _ = CloseHandle(process);
-                        return Err(NucleusError::Platform(format!("Failed to get kernel32 handle: {}", e)));
+                        return Err(NucleusError::Platform(format!(
+                            "Failed to get kernel32 handle: {}",
+                            e
+                        )));
                     }
                 };
 
-                let free_library = match GetProcAddress(kernel32, windows::core::s!("FreeLibrary")) {
+                let free_library = match GetProcAddress(kernel32, windows::core::s!("FreeLibrary"))
+                {
                     Some(f) => f,
                     None => {
                         let _ = CloseHandle(process);
-                        return Err(NucleusError::Platform("FreeLibrary symbol not found in kernel32".to_string()));
+                        return Err(NucleusError::Platform(
+                            "FreeLibrary symbol not found in kernel32".to_string(),
+                        ));
                     }
                 };
 
@@ -289,7 +310,10 @@ impl DllInjector {
                     Ok(th) => th,
                     Err(e) => {
                         let _ = CloseHandle(process);
-                        return Err(NucleusError::Platform(format!("CreateRemoteThread for FreeLibrary failed: {}", e)));
+                        return Err(NucleusError::Platform(format!(
+                            "CreateRemoteThread for FreeLibrary failed: {}",
+                            e
+                        )));
                     }
                 };
 
@@ -301,7 +325,11 @@ impl DllInjector {
                 let _ = CloseHandle(process);
 
                 if exit_code == 0 {
-                    tracing::warn!("FreeLibrary returned 0 for module {:#x} in PID {}", module_handle, pid);
+                    tracing::warn!(
+                        "FreeLibrary returned 0 for module {:#x} in PID {}",
+                        module_handle,
+                        pid
+                    );
                 }
             }
         }
@@ -318,8 +346,9 @@ impl DllInjector {
     #[cfg(windows)]
     pub fn find_primary_thread_id(pid: u32) -> NucleusResult<u32> {
         unsafe {
-            let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0)
-                .map_err(|e| NucleusError::Platform(format!("Failed to create thread snapshot: {}", e)))?;
+            let snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0).map_err(|e| {
+                NucleusError::Platform(format!("Failed to create thread snapshot: {}", e))
+            })?;
             let mut entry = THREADENTRY32 {
                 dwSize: std::mem::size_of::<THREADENTRY32>() as u32,
                 ..Default::default()
@@ -338,7 +367,10 @@ impl DllInjector {
                 }
             }
             let _ = CloseHandle(snapshot);
-            Err(NucleusError::Platform(format!("No thread found for PID {}", pid)))
+            Err(NucleusError::Platform(format!(
+                "No thread found for PID {}",
+                pid
+            )))
         }
     }
 }

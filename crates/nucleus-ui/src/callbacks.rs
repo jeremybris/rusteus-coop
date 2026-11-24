@@ -125,7 +125,8 @@ pub struct MainWindowCallbacks {
     /// Optional callback to install an extension archive from path.
     pub on_install_extension: Option<Arc<dyn Fn(&str) -> Result<String, String> + Send + Sync>>,
     /// Optional callback to rescan extensions from disk: returns updated list.
-    pub on_rescan_extensions: Option<Arc<dyn Fn() -> Vec<crate::extensions_view::ExtensionItem> + Send + Sync>>,
+    pub on_rescan_extensions:
+        Option<Arc<dyn Fn() -> Vec<crate::extensions_view::ExtensionItem> + Send + Sync>>,
     /// Optional callback to grant a permission to an extension: `(id, perm_name)`.
     pub on_grant_extension_permission: Option<Arc<dyn Fn(&str, &str) + Send + Sync>>,
     /// Optional callback to uninstall an extension: `(id)`.

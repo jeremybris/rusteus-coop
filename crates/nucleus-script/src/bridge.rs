@@ -1499,15 +1499,21 @@ impl JsBridge {
                     if let Some(s) = v.as_string() {
                         let t_str = s.to_std_string_escaped().to_lowercase();
                         if t_str.contains("startupsuspended") || t_str.contains("suspended") {
-                            config.timing = nucleus_common::dll_injection::InjectionTiming::AtStartupSuspended;
+                            config.timing =
+                                nucleus_common::dll_injection::InjectionTiming::AtStartupSuspended;
                         } else if t_str.contains("window") {
-                            config.timing = nucleus_common::dll_injection::InjectionTiming::OnWindowCreated;
+                            config.timing =
+                                nucleus_common::dll_injection::InjectionTiming::OnWindowCreated;
                         } else if t_str.contains("delay") {
-                            config.timing = nucleus_common::dll_injection::InjectionTiming::AfterDelayMs(config.delay_ms);
+                            config.timing =
+                                nucleus_common::dll_injection::InjectionTiming::AfterDelayMs(
+                                    config.delay_ms,
+                                );
                         } else if t_str.contains("manual") {
                             config.timing = nucleus_common::dll_injection::InjectionTiming::Manual;
                         } else {
-                            config.timing = nucleus_common::dll_injection::InjectionTiming::PostStartup;
+                            config.timing =
+                                nucleus_common::dll_injection::InjectionTiming::PostStartup;
                         }
                     }
                 }
@@ -1575,7 +1581,12 @@ impl JsBridge {
             }
         });
         ctx_obj
-            .set(JsString::from("CallDllExport"), call_export_fn, false, context)
+            .set(
+                JsString::from("CallDllExport"),
+                call_export_fn,
+                false,
+                context,
+            )
             .map_err(|e| NucleusError::Script(e.to_string()))?;
 
         // Context.SendDllMessage(msg)
@@ -1599,7 +1610,12 @@ impl JsBridge {
             }
         });
         ctx_obj
-            .set(JsString::from("SendDllMessage"), send_dll_msg_fn, false, context)
+            .set(
+                JsString::from("SendDllMessage"),
+                send_dll_msg_fn,
+                false,
+                context,
+            )
             .map_err(|e| NucleusError::Script(e.to_string()))?;
 
         // Context.ReadMemoryInt(address)
@@ -1612,7 +1628,12 @@ impl JsBridge {
             }
         });
         ctx_obj
-            .set(JsString::from("ReadMemoryInt"), read_mem_int_fn, false, context)
+            .set(
+                JsString::from("ReadMemoryInt"),
+                read_mem_int_fn,
+                false,
+                context,
+            )
             .map_err(|e| NucleusError::Script(e.to_string()))?;
 
         // Context.ReadMemoryFloat(address)
@@ -1625,7 +1646,12 @@ impl JsBridge {
             }
         });
         ctx_obj
-            .set(JsString::from("ReadMemoryFloat"), read_mem_float_fn, false, context)
+            .set(
+                JsString::from("ReadMemoryFloat"),
+                read_mem_float_fn,
+                false,
+                context,
+            )
             .map_err(|e| NucleusError::Script(e.to_string()))?;
 
         // Context.ReadMemoryBytes(address, length)
@@ -1646,7 +1672,12 @@ impl JsBridge {
             }
         });
         ctx_obj
-            .set(JsString::from("ReadMemoryBytes"), read_mem_bytes_fn, false, context)
+            .set(
+                JsString::from("ReadMemoryBytes"),
+                read_mem_bytes_fn,
+                false,
+                context,
+            )
             .map_err(|e| NucleusError::Script(e.to_string()))?;
 
         // Context.WriteMemoryInt(address, value)
@@ -1654,13 +1685,20 @@ impl JsBridge {
             let pid = extract_target_pid(this, ctx);
             let address = args.get(0).and_then(|v| v.as_number()).unwrap_or(0.0) as usize;
             let value = args.get(1).and_then(|v| v.as_number()).unwrap_or(0.0) as i32;
-            match nucleus_hook::memory_engine::MemoryEngine::write_value::<i32>(pid, address, &value) {
+            match nucleus_hook::memory_engine::MemoryEngine::write_value::<i32>(
+                pid, address, &value,
+            ) {
                 Ok(()) => Ok(JsValue::from(true)),
                 Err(e) => Err(js_err(format!("Context.WriteMemoryInt failed: {e}"))),
             }
         });
         ctx_obj
-            .set(JsString::from("WriteMemoryInt"), write_mem_int_fn, false, context)
+            .set(
+                JsString::from("WriteMemoryInt"),
+                write_mem_int_fn,
+                false,
+                context,
+            )
             .map_err(|e| NucleusError::Script(e.to_string()))?;
 
         // Context.WriteMemoryFloat(address, value)
@@ -1668,13 +1706,20 @@ impl JsBridge {
             let pid = extract_target_pid(this, ctx);
             let address = args.get(0).and_then(|v| v.as_number()).unwrap_or(0.0) as usize;
             let value = args.get(1).and_then(|v| v.as_number()).unwrap_or(0.0) as f32;
-            match nucleus_hook::memory_engine::MemoryEngine::write_value::<f32>(pid, address, &value) {
+            match nucleus_hook::memory_engine::MemoryEngine::write_value::<f32>(
+                pid, address, &value,
+            ) {
                 Ok(()) => Ok(JsValue::from(true)),
                 Err(e) => Err(js_err(format!("Context.WriteMemoryFloat failed: {e}"))),
             }
         });
         ctx_obj
-            .set(JsString::from("WriteMemoryFloat"), write_mem_float_fn, false, context)
+            .set(
+                JsString::from("WriteMemoryFloat"),
+                write_mem_float_fn,
+                false,
+                context,
+            )
             .map_err(|e| NucleusError::Script(e.to_string()))?;
 
         // Context.WriteMemoryBytes(address, bytes)
@@ -1702,7 +1747,12 @@ impl JsBridge {
             }
         });
         ctx_obj
-            .set(JsString::from("WriteMemoryBytes"), write_mem_bytes_fn, false, context)
+            .set(
+                JsString::from("WriteMemoryBytes"),
+                write_mem_bytes_fn,
+                false,
+                context,
+            )
             .map_err(|e| NucleusError::Script(e.to_string()))?;
 
         // Context.ScanMemory(pattern, mask)
@@ -1782,7 +1832,12 @@ impl JsBridge {
             }
         });
         ctx_obj
-            .set(JsString::from("ResolvePointer"), resolve_ptr_fn, false, context)
+            .set(
+                JsString::from("ResolvePointer"),
+                resolve_ptr_fn,
+                false,
+                context,
+            )
             .map_err(|e| NucleusError::Script(e.to_string()))?;
 
         // Context.FreezeMemoryInt(address, value)
@@ -1798,7 +1853,12 @@ impl JsBridge {
             Ok(JsValue::from(id as f64))
         });
         ctx_obj
-            .set(JsString::from("FreezeMemoryInt"), freeze_mem_int_fn, false, context)
+            .set(
+                JsString::from("FreezeMemoryInt"),
+                freeze_mem_int_fn,
+                false,
+                context,
+            )
             .map_err(|e| NucleusError::Script(e.to_string()))?;
 
         // Context.UnfreezeMemory(id)
@@ -1808,7 +1868,12 @@ impl JsBridge {
             Ok(JsValue::from(result))
         });
         ctx_obj
-            .set(JsString::from("UnfreezeMemory"), unfreeze_mem_fn, false, context)
+            .set(
+                JsString::from("UnfreezeMemory"),
+                unfreeze_mem_fn,
+                false,
+                context,
+            )
             .map_err(|e| NucleusError::Script(e.to_string()))?;
 
         crate::context_ext::install(context, &ctx_obj, handler_ctx)?;
