@@ -331,6 +331,13 @@ pub struct HandlerConfig {
     pub processor_priority_class: Option<String>,
     pub use_processors_per_instance: Option<Vec<String>>,
 
+    /// Remaining `Game.*` properties of the original handler API.
+    #[serde(default)]
+    pub legacy: crate::legacy_props::LegacyGameProps,
+    /// Full `Game.ProtoInput.*` option block.
+    #[serde(default)]
+    pub proto_input: nucleus_hook::proto_input::ProtoInputConfig,
+
     // Options configured via Game.AddOption
     pub options: Vec<HandlerOption>,
     // Custom steps defined via Game.ShowOptionAsStep
@@ -595,6 +602,9 @@ impl Default for HandlerConfig {
             use_processor: None,
             processor_priority_class: None,
             use_processors_per_instance: None,
+
+            legacy: crate::legacy_props::LegacyGameProps::default(),
+            proto_input: nucleus_hook::proto_input::ProtoInputConfig::default(),
 
             options: Vec::new(),
             custom_steps: Vec::new(),

@@ -18,7 +18,9 @@ impl ScriptEngine {
         let context = Context::default();
         let mut engine = Self { context };
         engine.register_nucleus_namespace()?;
+        crate::context_ext::register_reg_type(&mut engine.context)?;
         crate::bridge::JsBridge::register_globals(&mut engine.context)?;
+        crate::proto_script::register(&mut engine.context)?;
         Ok(engine)
     }
 
@@ -37,6 +39,15 @@ impl ScriptEngine {
     ) -> NucleusResult<()> {
         self.inject_context(ctx)?;
 
+        let _ = self.context.eval(Source::from_bytes(
+            crate::proto_script::PER_PLAYER_PRELUDE,
+        ));
+
+        // The original Context mirrors every Game setting (Context.SymlinkExe, Context.Hook, ...).
+        let _ = self.context.eval(Source::from_bytes(
+            "(function(){ if (typeof Game !== 'object' || typeof Context !== 'object') return;              for (var k in Game) { if (!(k in Context) && typeof Game[k] !== 'function') Context[k] = Game[k]; } })();",
+        ));
+
         let global = self.context.global_object();
         if let Ok(game_val) = global.get(JsString::from("Game"), &mut self.context) {
             if let Some(game_obj) = game_val.as_object() {
@@ -53,6 +64,7 @@ impl ScriptEngine {
         // Reflect mutated properties from Context back into ctx
         if let Ok(ctx_val) = global.get(JsString::from("Context"), &mut self.context) {
             if let Some(ctx_obj) = ctx_val.as_object() {
+                crate::context_ext::reflect_requests(&mut self.context, ctx_obj, ctx);
                 if let Ok(v) = ctx_obj.get(JsString::from("StartArguments"), &mut self.context) {
                     if let Some(s) = v.as_string() {
                         ctx.start_arguments = s.to_std_string_escaped();
@@ -179,6 +191,29 @@ impl ScriptEngine {
         }
 
         Ok(())
+    }
+
+    /// Invokes an optional parameterless `Game.<name>` callback (`OnStop`, `OnCustomHotKey_1`, ...).
+    ///
+    /// Returns `Ok(false)` when the handler does not define the callback.
+    pub fn call_game_callback(&mut self, name: &str) -> NucleusResult<bool> {
+        let global = self.context.global_object();
+        let Ok(game_val) = global.get(JsString::from("Game"), &mut self.context) else {
+            return Ok(false);
+        };
+        let Some(game_obj) = game_val.as_object().cloned() else {
+            return Ok(false);
+        };
+        let Ok(cb) = game_obj.get(JsString::from(name), &mut self.context) else {
+            return Ok(false);
+        };
+        let Some(callable) = cb.as_callable() else {
+            return Ok(false);
+        };
+        callable
+            .call(&JsValue::from(game_obj.clone()), &[], &mut self.context)
+            .map_err(|e| NucleusError::Script(e.to_string()))?;
+        Ok(true)
     }
 
     /// Executes the `Game.Play()` lifecycle function with debugger instrumentation and breakpoints.
@@ -1800,6 +1835,11 @@ impl ScriptEngine {
                 config.guid = hid.clone();
             }
         }
+
+        config.legacy = crate::legacy_props::LegacyGameProps::extract(&game_obj, &mut self.context);
+        config.proto_input = crate::legacy_props::extract_proto_input(&game_obj, &mut self.context);
+        config.use_proto_input = config.use_proto_input
+            || crate::legacy_props::proto_input_requested(&config.proto_input);
 
         Ok(config)
     }

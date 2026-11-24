@@ -103,6 +103,84 @@ pub struct HandlerContext {
     /// AutoHotkey script execution directives requested by the handler.
     #[serde(default)]
     pub ahk_directives: Vec<AhkScriptDirective>,
+    /// Game architecture as handlers expect it (`"x86"` or `"x64"`).
+    #[serde(default)]
+    pub arch: String,
+    /// Steam ID assigned to this player (decimal SteamID64).
+    #[serde(default)]
+    pub player_steam_id: Option<String>,
+    /// Steam IDs for every player slot, in slot order.
+    #[serde(default)]
+    pub player_steam_ids: Vec<String>,
+    /// Whether any player in the session uses keyboard & mouse.
+    #[serde(default)]
+    pub has_keyboard_player: bool,
+    /// Number of gamepad players in the session.
+    #[serde(default)]
+    pub num_controllers: usize,
+    /// Number of keyboard players in the session.
+    #[serde(default)]
+    pub num_keyboards: usize,
+    /// Raw HID device path of the assigned gamepad, when known.
+    #[serde(default)]
+    pub raw_hid: Option<String>,
+    /// Whether the instance covers its whole monitor.
+    #[serde(default)]
+    pub is_fullscreen: bool,
+    /// Nucleus installation folder override (defaults to the global install root).
+    #[serde(default)]
+    pub nucleus_folder: Option<String>,
+    /// Folder holding handler scripts.
+    #[serde(default)]
+    pub handlers_folder: Option<String>,
+    /// Companion folder of the running handler script (`handlers/<script name>`).
+    #[serde(default)]
+    pub script_folder: Option<String>,
+    /// Folder of the launcher executable, when the handler uses one.
+    #[serde(default)]
+    pub launcher_folder: Option<String>,
+    /// Whether instances run under dedicated `nucleusplayerN` Windows accounts.
+    #[serde(default)]
+    pub using_nucleus_accounts: bool,
+    /// Whether the user-profile paths were redirected into Documents.
+    #[serde(default)]
+    pub user_profile_converted_to_documents: bool,
+    /// `Game.UserProfileConfigPath`, possibly overridden by the handler through `Context`.
+    #[serde(default)]
+    pub user_profile_config_path: Option<String>,
+    /// `Game.UserProfileSavePath`.
+    #[serde(default)]
+    pub user_profile_save_path: Option<String>,
+    /// `Game.DocumentsConfigPath`.
+    #[serde(default)]
+    pub documents_config_path: Option<String>,
+    /// `Game.DocumentsSavePath`.
+    #[serde(default)]
+    pub documents_save_path: Option<String>,
+    /// Files listed in `Game.SymlinkFiles`, linked on `Context.ProceedSymlink()`.
+    #[serde(default)]
+    pub symlink_files: Vec<String>,
+    /// ProtoInput controller indices (1-based, 0 = none) for up to four pads per instance.
+    #[serde(default)]
+    pub proto_controllers: [i32; 4],
+    /// Steam language name exposed as `Context.SteamLang`.
+    #[serde(default)]
+    pub steam_lang: Option<String>,
+    /// Epic language code exposed as `Context.EpicLang`.
+    #[serde(default)]
+    pub epic_lang: Option<String>,
+    /// GOG language name exposed as `Context.GogLang`.
+    #[serde(default)]
+    pub gog_lang: Option<String>,
+    /// Set when the handler called `Context.HideDesktop()`.
+    #[serde(default)]
+    pub hide_desktop_requested: bool,
+    /// Set when the handler called `Context.HideTaskBar()`.
+    #[serde(default)]
+    pub hide_taskbar_requested: bool,
+    /// Set when the handler asked to keep its registry edits after the session ends.
+    #[serde(default)]
+    pub keep_edited_reg_keys: bool,
 }
 
 /// AutoHotkey script execution directive (imported file or inline code).

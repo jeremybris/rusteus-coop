@@ -11,7 +11,7 @@ use nucleus_common::error::{NucleusError, NucleusResult};
 use nucleus_platform::PlatformServices;
 use nucleus_script::{HandlerConfig, HandlerContext, ScriptEngine};
 use nucleus_tools::{
-    DevReorderTool, HexEditTool, Sdl2Tool, SteamEmuTool, X360ceTool, XInputPlusTool,
+    DevReorderTool, Sdl2Tool, SteamEmuTool, X360ceTool, XInputPlusTool,
 };
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -80,6 +80,19 @@ pub struct GameHandler {
     pub debug_controller: Option<nucleus_debug::DebugController>,
     /// Injected DLL module handles per PID: (pid, module_handle, eject_on_close)
     pub injected_modules: Vec<(u32, usize, bool)>,
+    /// ProtoInput state for the running session (present once a handler requested it).
+    pub proto_session: Option<crate::proto_launch::ProtoSession>,
+    /// Physical keyboards and mice available for raw-input assignment.
+    pub raw_devices: Vec<nucleus_input::RawDevice>,
+    /// Set when the handler asked to keep its registry edits after the session.
+    pub keep_edited_reg_keys: bool,
+    /// Input-lock state last applied to the ProtoInput instances.
+    pub applied_input_lock: bool,
+    /// Operations recorded from the handler's ProtoInput lifecycle callbacks.
+    pub proto_recordings: Vec<(
+        nucleus_script::proto_script::ProtoCallback,
+        Vec<nucleus_script::proto_script::ProtoCall>,
+    )>,
 }
 
 impl GameHandler {
@@ -123,7 +136,116 @@ impl GameHandler {
             extension_manager: None,
             debug_controller: None,
             injected_modules: Vec::new(),
+            proto_session: None,
+            raw_devices: Vec::new(),
+            keep_edited_reg_keys: false,
+            applied_input_lock: false,
+            proto_recordings: Vec::new(),
         }
+    }
+
+    /// The session's players as handler callbacks see them (`PlayerList`), with placeholder
+    /// ProtoInput handles that are resolved when a recording is replayed.
+    fn proto_player_list(
+        &self,
+        total_players: usize,
+        current: &HandlerContext,
+    ) -> Vec<nucleus_script::proto_script::ProtoPlayer> {
+        (0..total_players)
+            .map(|slot| {
+                let mut ctx = if slot == current.player_index {
+                    current.clone()
+                } else if let Some(existing) = self.contexts.get(slot) {
+                    existing.clone()
+                } else {
+                    let mut fresh = HandlerContext::new(slot, format!("Player{}", slot + 1));
+                    let assignment = self
+                        .player_device_assignments
+                        .get(slot)
+                        .map(|s| s.as_str())
+                        .unwrap_or_default();
+                    Self::apply_device_assignment_to_ctx(&mut fresh, slot, assignment);
+                    fresh
+                };
+                ctx.player_index = slot;
+                nucleus_script::proto_script::ProtoPlayer {
+                    player_index: slot,
+                    nickname: ctx.nickname.clone(),
+                    instance_handle: crate::proto_launch::PLACEHOLDER_HANDLE_BASE + slot as u32,
+                    process_id: ctx.process_id.unwrap_or(0),
+                    is_keyboard_player: ctx.is_keyboard_player,
+                    is_raw_keyboard: ctx.is_raw_keyboard,
+                    is_raw_mouse: ctx.is_raw_mouse,
+                    gamepad_id: ctx.gamepad_id.max(0),
+                    screen_index: ctx.monitor_index,
+                    proto_controllers: ctx.proto_controllers,
+                    bounds: (ctx.pos_x, ctx.pos_y, ctx.width, ctx.height),
+                }
+            })
+            .collect()
+    }
+
+    /// Replays the recording of a handler ProtoInput callback on the live instances.
+    fn replay_proto_callback(&self, which: nucleus_script::proto_script::ProtoCallback) {
+        let Some(ref session) = self.proto_session else {
+            return;
+        };
+        if let Some((_, calls)) = self.proto_recordings.iter().find(|(w, _)| *w == which) {
+            tracing::info!("Applying handler {:?} callback ({} operation(s))", which, calls.len());
+            session.replay(calls);
+        }
+    }
+
+    /// Applies a change of the global input lock (End key) to the ProtoInput instances.
+    /// Called from the session heartbeat; does nothing for sessions without ProtoInput.
+    pub fn sync_input_lock(&mut self) {
+        let locked = nucleus_input::global_input_locked();
+        if locked == self.applied_input_lock {
+            return;
+        }
+        if let Some(ref session) = self.proto_session {
+            session.set_input_lock(locked);
+            tracing::info!("ProtoInput input lock {}", if locked { "engaged" } else { "released" });
+        }
+        self.replay_proto_callback(if locked {
+            nucleus_script::proto_script::ProtoCallback::InputLocked
+        } else {
+            nucleus_script::proto_script::ProtoCallback::InputUnlocked
+        });
+        self.applied_input_lock = locked;
+    }
+
+    /// Nucleus installation folder (parent of `utils`).
+    fn resolve_nucleus_root(&self) -> PathBuf {
+        if let Some(globals) = nucleus_common::Globals::try_get() {
+            return globals.install_root.clone();
+        }
+        self.resolve_utils_dir()
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_default()
+    }
+
+    /// SteamID64 for a player slot: the handler's own list when `UseHandlerSteamIds` is set,
+    /// otherwise the same sequence the Goldberg deployment writes.
+    fn steam_id_for_slot(&self, slot_idx: usize) -> u64 {
+        if self.config.legacy.use_handler_steam_ids {
+            if let Some(id) = self
+                .config
+                .legacy
+                .player_steam_ids
+                .get(slot_idx)
+                .and_then(|s| s.trim().parse::<u64>().ok())
+            {
+                return id;
+            }
+        }
+        76561198000000000u64 + slot_idx as u64 + 1
+    }
+
+    /// Whether the given device assignment label denotes a keyboard/mouse player.
+    fn is_keyboard_assignment(assignment: &str) -> bool {
+        assignment.contains("Keyboard") || assignment.contains("ProtoInput")
     }
 
     /// Sets the AutoHotkey manager.
@@ -210,6 +332,18 @@ impl GameHandler {
     }
 
     /// Prompts the user before proceeding to the next instance.
+    /// Asks a yes/no question through the configured prompt handler. Without a handler
+    /// (headless sessions) the answer is "no", so destructive steps are skipped.
+    pub fn confirm_user(&self, message: &str) -> bool {
+        match self.prompt_handler {
+            Some(ref handler) => handler(message),
+            None => {
+                tracing::warn!("No prompt handler available; answering 'no' to: {message}");
+                false
+            }
+        }
+    }
+
     pub fn prompt_user(&self, message: &str) {
         tracing::info!("[Interactive Prompt] {}", message);
         if let Some(ref cb) = self.prompt_handler {
@@ -566,6 +700,40 @@ impl GameHandler {
                 &inst_folder
             };
 
+        // Folder placement, renames and deletions requested by the handler.
+        {
+            use crate::file_ops::{FolderLinkMode, place_folders};
+            let legacy = &self.config.legacy;
+            place_folders(&self.game_dir, &inst_folder, &legacy.copy_folders_to, FolderLinkMode::Copy);
+            place_folders(
+                &self.game_dir,
+                &inst_folder,
+                &legacy.symlink_folders_to,
+                FolderLinkMode::Symlink,
+            );
+            place_folders(
+                &self.game_dir,
+                &inst_folder,
+                &legacy.hardlink_folders_to,
+                FolderLinkMode::Hardlink,
+            );
+            crate::file_ops::rename_or_move_files(
+                &inst_folder,
+                &legacy.rename_and_or_move_files,
+                slot_idx,
+            );
+            if !legacy.delete_files.is_empty() {
+                let ignore_prompt = self.config.ignore_delete_files_prompt;
+                crate::file_ops::delete_files(&inst_folder, &legacy.delete_files, slot_idx, |path| {
+                    ignore_prompt
+                        || self.confirm_user(&format!(
+                            "Are you sure you want to delete '{}'?",
+                            path.display()
+                        ))
+                });
+            }
+        }
+
         let peerparty_handles_steam = self.config.use_peerparty
             && self
                 .config
@@ -617,6 +785,13 @@ impl GameHandler {
                 start_arguments: None,
             };
             let _ = SteamEmuTool::deploy_goldberg(&goldberg_opts);
+            if self.config.legacy.use_handler_steam_ids {
+                let _ = SteamEmuTool::write_steam_id_and_account(
+                    &inst_folder,
+                    &nickname,
+                    self.steam_id_for_slot(slot_idx),
+                );
+            }
         }
 
         if self.config.use_dev_reorder {
@@ -712,57 +887,60 @@ impl GameHandler {
         if self.config.use_xinput_plus {
             let dll_strings = self.config.xinput_plus_dll.as_deref().unwrap_or(&[]);
             let dll_refs: Vec<&str> = dll_strings.iter().map(|s| s.as_str()).collect();
+            let use_old_dll = self.config.legacy.xinput_plus_old_dll;
+            let write_ini = !self.config.legacy.xinput_plus_no_ini;
             let _ = XInputPlusTool::setup_xinput_plus(
                 &inst_folder,
                 &utils_dir,
                 is_64bit,
                 &dll_refs,
-                false,
+                use_old_dll,
             );
             let ini_content = XInputPlusTool::generate_ini((slot_idx + 1) as u32);
-            let _ = nucleus_common::file_util::write_text_file(
-                &inst_folder.join("XInputPlus.ini"),
-                &ini_content,
-            );
+            if write_ini {
+                let _ = nucleus_common::file_util::write_text_file(
+                    &inst_folder.join("XInputPlus.ini"),
+                    &ini_content,
+                );
+            }
             if inst_exe_dir != &inst_folder {
                 let _ = XInputPlusTool::setup_xinput_plus(
                     inst_exe_dir,
                     &utils_dir,
                     is_64bit,
                     &dll_refs,
-                    false,
+                    use_old_dll,
                 );
-                let _ = nucleus_common::file_util::write_text_file(
-                    &inst_exe_dir.join("XInputPlus.ini"),
-                    &ini_content,
-                );
+                if write_ini {
+                    let _ = nucleus_common::file_util::write_text_file(
+                        &inst_exe_dir.join("XInputPlus.ini"),
+                        &ini_content,
+                    );
+                }
             }
         }
 
-        if let Some(ref hex_exes) = self.config.hex_edit_exe {
-            for hex_entry in hex_exes {
-                let delim = if hex_entry.contains(':') { ':' } else { '|' };
-                let parts: Vec<&str> = hex_entry.splitn(3, delim).collect();
-                if parts.len() == 3 {
-                    let target = inst_folder.join(parts[0]);
-                    if target.exists() {
-                        let find = parts[1].as_bytes().to_vec();
-                        let replace = parts[2].as_bytes().to_vec();
-                        if find.len() == replace.len() {
-                            let _ =
-                                HexEditTool::patch_file(&target, &target, &find, &replace, true);
-                        }
-                    }
-                } else if parts.len() == 2 {
-                    let target = inst_folder.join(exe_rel);
-                    if target.exists() {
-                        let find = parts[0].as_bytes().to_vec();
-                        let replace = parts[1].as_bytes().to_vec();
-                        if find.len() == replace.len() {
-                            let _ =
-                                HexEditTool::patch_file(&target, &target, &find, &replace, true);
-                        }
-                    }
+        // HexEdit* properties. `HexEditExe` and `HexEditFile` hold one entry per player; the
+        // `All`/`Address` variants apply to every instance (or the one they name).
+        {
+            let legacy = &self.config.legacy;
+            let edits = crate::file_ops::HexEdits {
+                exe: self.config.hex_edit_exe.as_deref().unwrap_or(&[]),
+                all_exes: &legacy.hex_edit_all_exes,
+                exe_address: &legacy.hex_edit_exe_address,
+                file: &legacy.hex_edit_file,
+                all_files: &legacy.hex_edit_all_files,
+                file_address: &legacy.hex_edit_file_address,
+            };
+            if !edits.is_empty() {
+                if inst_exe == self.exe_path {
+                    tracing::warn!(
+                        "Hex edits requested without an instanced copy of the game; the \
+                         installed executable is left untouched"
+                    );
+                } else {
+                    let applied = edits.apply(&inst_exe, &inst_folder, slot_idx);
+                    tracing::info!("Applied {applied} hex edit(s) for player {}", slot_idx + 1);
                 }
             }
         }
@@ -773,16 +951,53 @@ impl GameHandler {
                 let parts: Vec<&str> = hex_entry.splitn(3, delim).collect();
                 if parts.len() == 3 {
                     let target = inst_folder.join(parts[0]);
-                    if target.exists() {
+                    if target.exists() && inst_folder != self.game_dir {
                         let find = parts[1].as_bytes().to_vec();
                         let replace = parts[2].as_bytes().to_vec();
-                        if find.len() == replace.len() {
-                            let _ =
-                                HexEditTool::patch_file(&target, &target, &find, &replace, true);
+                        if find.len() == replace.len() && find != replace {
+                            crate::file_ops::patch_detached(&target, |bytes| {
+                                let mut changed = false;
+                                while crate::file_ops::replace_first(bytes, &find, &replace) {
+                                    changed = true;
+                                }
+                                changed
+                            });
                         }
                     }
                 }
             }
+        }
+
+        if !self.config.legacy.copy_custom_utils.is_empty() {
+            let copied = crate::file_ops::copy_custom_utils(
+                &utils_dir,
+                &inst_folder,
+                &self.config.legacy.copy_custom_utils,
+                slot_idx,
+            );
+            tracing::info!("Copied {copied} custom util file(s) for player {}", slot_idx + 1);
+        }
+
+        if self.config.legacy.use_dinput_blocker {
+            let arch_folder = if is_64bit { "x64" } else { "x86" };
+            let blocker = utils_dir
+                .join("DInputBlocker")
+                .join(arch_folder)
+                .join("dinput8.dll");
+            if blocker.exists() {
+                let _ = nucleus_common::file_util::copy_file(
+                    &blocker,
+                    &inst_exe_dir.join("dinput8.dll"),
+                    true,
+                );
+            } else {
+                tracing::warn!("UseDInputBlocker: {} not found", blocker.display());
+            }
+            let _ = nucleus_tools::dinput_blocker::DinputBlockerTool::setup_blocker(
+                inst_exe_dir,
+                true,
+                &[],
+            );
         }
 
         let mut ctx = HandlerContext::new(slot_idx, format!("Player{}", slot_idx + 1));
@@ -804,8 +1019,65 @@ impl GameHandler {
         ctx.width = split_bounds.width;
         ctx.height = split_bounds.height;
         ctx.is_active = true;
+        ctx.arch = if is_64bit { "x64" } else { "x86" }.to_string();
+        ctx.is_fullscreen = split_bounds.width >= primary_screen.width
+            && split_bounds.height >= primary_screen.height;
+        ctx.orig_width = Some(primary_screen.width);
+        ctx.orig_height = Some(primary_screen.height);
+        ctx.player_steam_id = Some(self.steam_id_for_slot(slot_idx).to_string());
+        ctx.player_steam_ids = (0..guid_count)
+            .map(|i| self.steam_id_for_slot(i).to_string())
+            .collect();
+        ctx.nucleus_folder = Some(self.resolve_nucleus_root().to_string_lossy().to_string());
+        // `handler_folder` is the folder holding the handler script; its companion folder
+        // (`handlers/<script name>`) is what handlers copy from with `CopyScriptFolder`.
+        ctx.handlers_folder = self.config.handler_folder.clone();
+        ctx.script_folder = self
+            .config
+            .handler_path
+            .as_deref()
+            .map(|p| Path::new(p).with_extension(""))
+            .map(|p| p.to_string_lossy().to_string());
+        if !self.config.launcher_exe.is_empty() {
+            ctx.launcher_folder = Path::new(&self.config.launcher_exe)
+                .parent()
+                .filter(|p| !p.as_os_str().is_empty())
+                .map(|p| inst_folder.join(p).to_string_lossy().to_string())
+                .or_else(|| Some(inst_folder.to_string_lossy().to_string()));
+        }
+        ctx.symlink_files = self.config.legacy.symlink_files.clone();
+        ctx.user_profile_config_path = self.config.user_profile_config_path.clone();
+        ctx.user_profile_save_path = self.config.user_profile_save_path.clone();
+        ctx.documents_config_path = self.config.documents_config_path.clone();
+        ctx.documents_save_path = self.config.documents_save_path.clone();
+        ctx.num_keyboards = self
+            .player_device_assignments
+            .iter()
+            .take(guid_count)
+            .filter(|a| Self::is_keyboard_assignment(a))
+            .count();
+        ctx.num_controllers = guid_count.saturating_sub(ctx.num_keyboards);
+        ctx.has_keyboard_player = ctx.num_keyboards > 0;
 
         Self::apply_device_assignment_to_ctx(&mut ctx, slot_idx, device_assignment);
+
+        // Replace the placeholder device IDs with the real raw-input handles when known.
+        let (kb_handle, mouse_handle) =
+            crate::proto_launch::raw_handles_for_assignment(device_assignment, &self.raw_devices);
+        if ctx.is_raw_keyboard && kb_handle != -1 {
+            ctx.raw_keyboard_guid = Some((kb_handle as u32).to_string());
+        }
+        if ctx.is_raw_mouse && mouse_handle != -1 {
+            ctx.raw_mouse_guid = Some((mouse_handle as u32).to_string());
+        }
+        if !self.config.legacy.use_manual_proto_controllers_setup {
+            let own = ctx.gamepad_id.max(0);
+            ctx.proto_controllers = if self.config.proto_input.multiple_proto_controllers {
+                [own; 4]
+            } else {
+                [own, 0, 0, 0]
+            };
+        }
 
         // Execute Game.Play locally inside short-lived !Send ScriptEngine
         if let Some(ref script) = self.script_source {
@@ -830,6 +1102,32 @@ impl GameHandler {
             } else {
                 let _ = engine.load_handler_script_with_folder(script, folder_path)?;
                 engine.execute_play(&mut ctx)?;
+            }
+
+            // Handlers often define their input-lock callbacks inside Game.Play. Record what
+            // they ask for now; it is replayed on the live instances when the event happens.
+            let players = self.proto_player_list(total_players, &ctx);
+            let mut recordings = Vec::new();
+            for which in [
+                nucleus_script::proto_script::ProtoCallback::InputLocked,
+                nucleus_script::proto_script::ProtoCallback::InputUnlocked,
+                nucleus_script::proto_script::ProtoCallback::FinishedSetup,
+            ] {
+                match engine.run_proto_callback(which, &players) {
+                    Ok(Some(calls)) => recordings.push((which, calls)),
+                    Ok(None) => {}
+                    Err(e) => tracing::warn!("Handler {:?} callback failed: {}", which, e),
+                }
+            }
+            self.proto_recordings = recordings;
+        }
+
+        if ctx.keep_edited_reg_keys {
+            self.keep_edited_reg_keys = true;
+        }
+        if ctx.hide_taskbar_requested {
+            if let Some(ref platform) = self.platform {
+                let _ = platform.taskbar_manager().hide();
             }
         }
 
@@ -887,6 +1185,9 @@ impl GameHandler {
         self.contexts[slot_idx].is_active = false;
         self.contexts[slot_idx].process_id = None;
         self.contexts[slot_idx].window_handle = None;
+        if let Some(ref mut session) = self.proto_session {
+            session.forget(slot_idx);
+        }
 
         self.sync_launched_pids();
         self.split_mode = new_mode;
@@ -1235,6 +1536,19 @@ impl IGameHandler for GameHandler {
         self.contexts.clear();
         self.instance_folders.clear();
 
+        if self
+            .player_device_assignments
+            .iter()
+            .any(|a| a.contains("ProtoInput"))
+        {
+            self.raw_devices = nucleus_input::enumerate_raw_devices();
+            tracing::info!(
+                "Raw input devices: {} keyboard(s), {} mouse/mice",
+                nucleus_input::device_count(&self.raw_devices, nucleus_input::RawDeviceKind::Keyboard),
+                nucleus_input::device_count(&self.raw_devices, nucleus_input::RawDeviceKind::Mouse)
+            );
+        }
+
         let utils_dir = self.resolve_utils_dir();
         tracing::info!("GameHandler using utils directory: {}", utils_dir.display());
         let primary_screen = self.resolve_primary_screen();
@@ -1439,10 +1753,7 @@ impl IGameHandler for GameHandler {
         let args: Vec<String> = if ctx.start_arguments.is_empty() {
             Vec::new()
         } else {
-            ctx.start_arguments
-                .split_whitespace()
-                .map(|s| s.to_string())
-                .collect()
+            crate::launch::split_command_line(&ctx.start_arguments)
         };
 
         // Before launching an instance, make sure all active sibling instances have had their single-instance mutexes killed
@@ -1509,7 +1820,73 @@ impl IGameHandler for GameHandler {
                 && d.timing == nucleus_common::dll_injection::InjectionTiming::AtStartupSuspended
         });
 
-        let pid = if has_startup_dlls && self.platform.is_some() {
+        let dry_run = self
+            .debug_controller
+            .as_ref()
+            .map(|c| c.is_dry_run())
+            .unwrap_or(false);
+        let proto_wanted =
+            !dry_run && nucleus_script::legacy_props::proto_input_requested(&self.config.proto_input);
+        if proto_wanted && self.proto_session.is_none() {
+            let root = self.resolve_nucleus_root();
+            match crate::proto_launch::ProtoSession::open(&root) {
+                Ok(session) => {
+                    tracing::info!("ProtoInput found in {}", session.dll_folder().display());
+                    self.proto_session = Some(session);
+                }
+                Err(e) => {
+                    tracing::error!("{e}");
+                    if let Some(ref platform) = self.platform {
+                        platform.osd_manager().show(4000, "ProtoInput DLLs not found");
+                    }
+                    return Err(e);
+                }
+            }
+        }
+        let assignment = self
+            .player_device_assignments
+            .get(player_index)
+            .cloned()
+            .unwrap_or_default();
+        let manual_controllers = self.config.legacy.use_manual_proto_controllers_setup;
+
+        let proto_startup_pid = if proto_wanted && self.config.proto_input.inject_startup {
+            let session = self
+                .proto_session
+                .as_mut()
+                .expect("ProtoInput session opened above");
+            let cfg = &self.config.proto_input;
+            let devices = &self.raw_devices;
+            let spawned = session.start_with_injection(
+                player_index,
+                &exe,
+                &ctx.start_arguments,
+                &env_vars,
+                cfg,
+                |handle| {
+                    crate::proto_launch::player_config(
+                        cfg,
+                        ctx,
+                        &assignment,
+                        devices,
+                        manual_controllers,
+                        handle,
+                    )
+                },
+            )?;
+            tracing::info!(
+                "Started player {} through ProtoInput startup injection (PID {})",
+                player_index + 1,
+                spawned
+            );
+            Some(spawned)
+        } else {
+            None
+        };
+
+        let pid = if let Some(spawned) = proto_startup_pid {
+            spawned
+        } else if has_startup_dlls && self.platform.is_some() {
             let p_mgr = self.platform.as_ref().unwrap().process_manager();
             let proc_cfg = nucleus_common::types::ProcessConfig {
                 exe_path: exe.clone(),
@@ -1567,6 +1944,44 @@ impl IGameHandler for GameHandler {
         self.contexts[player_index].process_id = Some(pid);
         self.contexts[player_index].is_active = true;
         self.sync_launched_pids();
+
+        if proto_wanted {
+            if let Some(method) = crate::proto_launch::runtime_method(&self.config.proto_input) {
+                let cfg = &self.config.proto_input;
+                let devices = &self.raw_devices;
+                let ctx = &self.contexts[player_index];
+                let session = self
+                    .proto_session
+                    .as_mut()
+                    .expect("ProtoInput session opened above");
+                let injected = session.inject_running(player_index, pid, method, cfg, |handle| {
+                    crate::proto_launch::player_config(
+                        cfg,
+                        ctx,
+                        &assignment,
+                        devices,
+                        manual_controllers,
+                        handle,
+                    )
+                });
+                if let Err(e) = injected {
+                    tracing::error!(
+                        "ProtoInput runtime injection failed for player {} (PID {}): {}",
+                        player_index + 1,
+                        pid,
+                        e
+                    );
+                    let _ = ProcessLauncher::terminate(pid);
+                    return Err(e);
+                }
+                tracing::info!(
+                    "Injected ProtoInput into player {} (PID {}) using {:?}",
+                    player_index + 1,
+                    pid,
+                    method
+                );
+            }
+        }
 
         // Inject PostStartup DLLs
         for dll_cfg in &self.config.injected_dlls {
@@ -1714,6 +2129,9 @@ impl IGameHandler for GameHandler {
             }
 
             if let Some(hwnd) = found_hwnd {
+                if let Some(ref session) = self.proto_session {
+                    session.set_main_window(player_index, hwnd as u64);
+                }
                 tracing::info!(
                     "Found window HWND {:#x} for player {} (PID {})",
                     hwnd,
@@ -2111,6 +2529,7 @@ impl IGameHandler for GameHandler {
     }
 
     fn finalize_instances(&self) -> NucleusResult<()> {
+        self.replay_proto_callback(nucleus_script::proto_script::ProtoCallback::FinishedSetup);
         if let Some(ref platform) = self.platform {
             let win_mgr = platform.window_manager();
             if self.config.set_top_most_at_end && !self.config.not_top_most {
@@ -2305,6 +2724,24 @@ impl IGameHandler for GameHandler {
         }
 
         // 8. Restore registry keys and personal shell folder redirection
+        if let Some(session) = self.proto_session.take() {
+            // Never leave the user's keyboard and mouse locked to instances that are gone.
+            if self.applied_input_lock {
+                session.set_input_lock(false);
+            }
+        }
+        self.applied_input_lock = false;
+        if self.keep_edited_reg_keys {
+            tracing::info!("Handler asked to keep its registry edits; skipping registry restore");
+        } else {
+            let restored = nucleus_script::context_ext::registry::restore_backups(
+                &self.resolve_nucleus_root(),
+            );
+            if restored > 0 {
+                tracing::info!("Restored {restored} registry key backup(s) edited by the handler");
+            }
+        }
+        self.keep_edited_reg_keys = false;
         if let Some(mut guard) = self.personal_folder_guard.take() {
             let _ = guard.restore();
         }
@@ -2406,7 +2843,9 @@ mod tests {
         config.use_x360ce = true;
         config.use_sdl = true;
         config.use_xinput_plus = true;
-        config.hex_edit_exe = Some(vec!["game.exe:DUMMY:PATCH".to_string()]);
+        // Original format: one "find|replace" entry per player.
+        config.hex_edit_exe = Some(vec!["DUMMY|PONE_".to_string(), "DUMMY|PTWO_".to_string()]);
+        config.legacy.hex_edit_all_exes = vec!["PAYLOAD|PATCHED".to_string()];
         config.max_players = 2;
 
         let mut handler = GameHandler::new(config, game_dir, exe_path, staging_dir, 2);
@@ -2415,7 +2854,7 @@ mod tests {
             .expect("prepare_instances failed");
 
         assert_eq!(handler.instance_folders.len(), 2);
-        for folder in &handler.instance_folders {
+        for (idx, folder) in handler.instance_folders.iter().enumerate() {
             // Verify DevReorder
             assert!(
                 folder.join("devreorder.ini").exists(),
@@ -2443,11 +2882,22 @@ mod tests {
 
             // Verify HexEdit
             let patched_exe = std::fs::read(folder.join("game.exe")).unwrap();
-            assert!(
-                patched_exe.windows(5).any(|w| w == b"PATCH"),
-                "game.exe should have been hex patched"
+            let expected: &[u8] = if idx == 0 {
+                b"PONE__GAME_EXE_PATCHED"
+            } else {
+                b"PTWO__GAME_EXE_PATCHED"
+            };
+            assert_eq!(
+                patched_exe, expected,
+                "each instance gets its own HexEditExe entry plus the HexEditAllExes patch"
             );
         }
+        // The installed game must never be modified through the instance links.
+        assert_eq!(
+            std::fs::read(&handler.exe_path).unwrap(),
+            b"DUMMY_GAME_EXE_PAYLOAD",
+            "hex edits must not write through to the original executable"
+        );
 
         handler.stop().expect("stop failed");
         let _ = std::fs::remove_dir_all(&temp_dir);

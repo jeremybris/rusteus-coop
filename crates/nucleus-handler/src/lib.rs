@@ -4,11 +4,13 @@
 //! window positioning, mutex killing, and hook management.
 
 pub mod environment;
+pub mod file_ops;
 pub mod game_handler;
 pub mod hooks;
 pub mod instance;
 pub mod launch;
 pub mod mutex;
+pub mod proto_launch;
 pub mod traits;
 pub mod window;
 

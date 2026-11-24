@@ -7,6 +7,46 @@ use std::process::Command;
 /// Responsible for executing game binaries with custom arguments, environment, and working directory.
 pub struct ProcessLauncher;
 
+/// Splits a command-line string into arguments, honouring double quotes.
+///
+/// Handlers build `Context.StartArguments` as one string and routinely quote paths that
+/// contain spaces (`-config "C:\\My Games\\p1.cfg"`). Quotes group text and are removed;
+/// `\\"` yields a literal quote. Everything else, backslashes included, is kept verbatim.
+pub fn split_command_line(input: &str) -> Vec<String> {
+    let mut args = Vec::new();
+    let mut current = String::new();
+    let mut in_quotes = false;
+    let mut has_token = false;
+    let mut chars = input.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' if chars.peek() == Some(&'"') => {
+                chars.next();
+                current.push('"');
+                has_token = true;
+            }
+            '"' => {
+                in_quotes = !in_quotes;
+                has_token = true;
+            }
+            c if c.is_whitespace() && !in_quotes => {
+                if has_token {
+                    args.push(std::mem::take(&mut current));
+                    has_token = false;
+                }
+            }
+            c => {
+                current.push(c);
+                has_token = true;
+            }
+        }
+    }
+    if has_token {
+        args.push(current);
+    }
+    args
+}
+
 impl ProcessLauncher {
     /// Launches an executable process and returns the spawned process ID.
     pub fn launch<I, K, V>(
@@ -84,6 +124,21 @@ impl ProcessLauncher {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_split_command_line_keeps_quoted_paths_together() {
+        assert_eq!(
+            split_command_line(r#"-windowed -config "C:\My Games\p1.cfg" +name Player1"#),
+            vec!["-windowed", "-config", r"C:\My Games\p1.cfg", "+name", "Player1"]
+        );
+        assert_eq!(split_command_line("  "), Vec::<String>::new());
+        assert_eq!(split_command_line(r#"-a "" -b"#), vec!["-a", "", "-b"]);
+        assert_eq!(
+            split_command_line(r#"-name \"Bob\" -dir C:\games\"#),
+            vec!["-name", "\"Bob\"", "-dir", r"C:\games\"]
+        );
+        assert_eq!(split_command_line(r#"-x="a b""#), vec!["-x=a b"]);
+    }
 
     #[test]
     fn test_process_launch_and_terminate() {

@@ -111,11 +111,31 @@ pub struct MetaInfoStore {
 impl MetaInfoStore {
     /// Returns the canonical path to `%USERPROFILE%\NucleusCoop\metaInfo.json`.
     pub fn default_path() -> PathBuf {
+        // Test binaries (cargo places them in a `deps` folder) must never read or write the
+        // user's real play history; each test process gets a private store instead.
+        if Self::running_as_test_binary() {
+            return std::env::temp_dir()
+                .join("nucleus-coop-tests")
+                .join(std::process::id().to_string())
+                .join("metaInfo.json");
+        }
         if let Some(home) = dirs::home_dir() {
             home.join("NucleusCoop").join("metaInfo.json")
         } else {
             PathBuf::from("metaInfo.json")
         }
+    }
+
+    /// Whether the current process is a cargo-built test executable.
+    fn running_as_test_binary() -> bool {
+        std::env::current_exe()
+            .ok()
+            .and_then(|exe| {
+                exe.parent()
+                    .and_then(|dir| dir.file_name())
+                    .map(|name| name.eq_ignore_ascii_case("deps"))
+            })
+            .unwrap_or(false)
     }
 
     /// Loads the store from the default path `%USERPROFILE%\NucleusCoop\metaInfo.json`.
@@ -132,12 +152,26 @@ impl MetaInfoStore {
         };
 
         if path.exists() {
-            if let Ok(content) = std::fs::read_to_string(&path) {
-                if let Ok(entries) =
-                    serde_json::from_str::<HashMap<String, GameMetaInfoEntry>>(&content)
-                {
+            let parsed = std::fs::read_to_string(&path).ok().and_then(|content| {
+                serde_json::from_str::<HashMap<String, GameMetaInfoEntry>>(&content).ok()
+            });
+            match parsed {
+                Some(entries) => {
                     tracing::info!("Loaded {} entry/entries from {:?}", entries.len(), path);
                     store.entries = entries;
+                }
+                None => {
+                    // The next save would replace an unreadable file with an empty store.
+                    // Keep what is there so the play history can be recovered by hand.
+                    let keep = path.with_extension("json.unreadable");
+                    match std::fs::copy(&path, &keep) {
+                        Ok(_) => tracing::warn!(
+                            "{:?} could not be read; a copy was kept at {:?}",
+                            path,
+                            keep
+                        ),
+                        Err(e) => tracing::warn!("{:?} could not be read ({})", path, e),
+                    }
                 }
             }
         }
@@ -152,7 +186,16 @@ impl MetaInfoStore {
         }
 
         let json_str = serde_json::to_string_pretty(&self.entries)?;
-        std::fs::write(&self.path, json_str)?;
+        // Write to a sibling file and rename it into place, so a crash or a concurrent
+        // reader never observes a half-written store.
+        let tmp = self
+            .path
+            .with_extension(format!("json.{}.tmp", std::process::id()));
+        std::fs::write(&tmp, json_str)?;
+        if let Err(e) = std::fs::rename(&tmp, &self.path) {
+            let _ = std::fs::remove_file(&tmp);
+            return Err(e.into());
+        }
         tracing::info!(
             "Saved {} metaInfo entries to {:?}",
             self.entries.len(),
@@ -306,5 +349,54 @@ mod tests {
         assert_eq!(entry.display_last_played(), "10/23/2026");
 
         let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_default_path_is_isolated_for_test_binaries() {
+        let path = MetaInfoStore::default_path();
+        assert!(
+            path.starts_with(std::env::temp_dir()),
+            "tests must not use the real user store: {path:?}"
+        );
+        if let Some(home) = dirs::home_dir() {
+            assert!(!path.starts_with(home.join("NucleusCoop")));
+        }
+    }
+
+    #[test]
+    fn test_unreadable_store_is_preserved_before_being_replaced() {
+        let dir = std::env::temp_dir().join(format!(
+            "nucleus_meta_unreadable_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("metaInfo.json");
+        std::fs::write(&path, "{ \"Half written").unwrap();
+
+        let mut store = MetaInfoStore::load_from_path(&path);
+        assert!(store.entries.is_empty());
+        let kept = dir.join("metaInfo.json.unreadable");
+        assert_eq!(
+            std::fs::read_to_string(&kept).unwrap(),
+            "{ \"Half written",
+            "the unreadable content must survive"
+        );
+
+        store.get_or_insert_mut("game");
+        store.save().unwrap();
+        let reloaded = MetaInfoStore::load_from_path(&path);
+        assert_eq!(reloaded.entries.len(), 1);
+        // No temporary files are left behind by the atomic save.
+        let leftovers: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .flatten()
+            .filter(|e| e.file_name().to_string_lossy().ends_with(".tmp"))
+            .collect();
+        assert!(leftovers.is_empty());
+        let _ = std::fs::remove_dir_all(dir);
     }
 }

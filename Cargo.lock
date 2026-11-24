@@ -4173,6 +4173,7 @@ dependencies = [
  "nucleus-platform-windows",
  "nucleus-plugin",
  "nucleus-profile",
+ "nucleus-script",
  "nucleus-tools",
  "nucleus-ui",
  "thiserror 2.0.21",
@@ -4242,6 +4243,7 @@ dependencies = [
  "nucleus-common",
  "nucleus-debug",
  "nucleus-hook",
+ "nucleus-input",
  "nucleus-platform",
  "nucleus-plugin",
  "nucleus-profile",
@@ -4363,16 +4365,21 @@ version = "0.1.0"
 dependencies = [
  "boa_engine",
  "boa_gc",
+ "chrono",
  "dirs 6.0.0",
+ "encoding_rs",
  "nucleus-common",
  "nucleus-debug",
  "nucleus-hook",
  "nucleus-plugin",
  "nucleus-tools",
  "quick-xml 0.37.5",
+ "regex",
  "serde",
  "serde_json",
  "tracing",
+ "winreg 0.52.0",
+ "zip",
 ]
 
 [[package]]

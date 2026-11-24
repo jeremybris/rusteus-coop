@@ -16,19 +16,31 @@ impl WindowsRegistryManager {
         Self
     }
 
+    /// Canonical name of a hive, as accepted back by [`Self::parse_path`].
+    fn hive_name(root: winreg::HKEY) -> &'static str {
+        match root {
+            HKEY_LOCAL_MACHINE => "HKEY_LOCAL_MACHINE",
+            HKEY_CLASSES_ROOT => "HKEY_CLASSES_ROOT",
+            HKEY_USERS => "HKEY_USERS",
+            HKEY_CURRENT_CONFIG => "HKEY_CURRENT_CONFIG",
+            _ => "HKEY_CURRENT_USER",
+        }
+    }
+
+    /// Splits a registry path into its hive and sub-key.
+    ///
+    /// A path without a hive prefix (`Software\\Vendor\\App`) is relative to
+    /// `HKEY_CURRENT_USER` and is kept whole; only a recognised hive name is stripped.
     fn parse_path(full_path: &str) -> (winreg::HKEY, &str) {
         let trimmed = full_path.trim_start_matches('\\');
-        if let Some((root, sub)) = trimmed.split_once('\\') {
-            let hkey = match root.to_uppercase().as_str() {
-                "HKEY_LOCAL_MACHINE" | "HKLM" => HKEY_LOCAL_MACHINE,
-                "HKEY_CLASSES_ROOT" | "HKCR" => HKEY_CLASSES_ROOT,
-                "HKEY_USERS" | "HKU" => HKEY_USERS,
-                "HKEY_CURRENT_CONFIG" | "HKCC" => HKEY_CURRENT_CONFIG,
-                _ => HKEY_CURRENT_USER,
-            };
-            (hkey, sub)
-        } else {
-            (HKEY_CURRENT_USER, trimmed)
+        let (root, sub) = trimmed.split_once('\\').unwrap_or((trimmed, ""));
+        match root.to_uppercase().as_str() {
+            "HKEY_LOCAL_MACHINE" | "HKLM" => (HKEY_LOCAL_MACHINE, sub),
+            "HKEY_CLASSES_ROOT" | "HKCR" => (HKEY_CLASSES_ROOT, sub),
+            "HKEY_USERS" | "HKU" => (HKEY_USERS, sub),
+            "HKEY_CURRENT_CONFIG" | "HKCC" => (HKEY_CURRENT_CONFIG, sub),
+            "HKEY_CURRENT_USER" | "HKCU" => (HKEY_CURRENT_USER, sub),
+            _ => (HKEY_CURRENT_USER, trimmed),
         }
     }
 }
@@ -130,7 +142,7 @@ impl RegistryManager for WindowsRegistryManager {
         }
 
         Ok(RegistryBackup {
-            root_key: format!("{:?}", root),
+            root_key: Self::hive_name(root).to_string(),
             sub_key: sub.to_string(),
             values,
         })
@@ -264,6 +276,7 @@ mod tests {
         // Perform in-memory backup
         let backup = mgr.backup_key(&test_key).unwrap();
         assert_eq!(backup.values.len(), 3);
+        assert_eq!(backup.root_key, "HKEY_CURRENT_USER");
 
         let expand_entry = backup
             .values
@@ -333,5 +346,38 @@ mod tests {
         // Cleanup
         let _ = mgr.delete_key(&test_key);
         let _ = std::fs::remove_file(&temp_reg);
+    }
+
+    #[test]
+    fn test_parse_path_keeps_hive_relative_paths_whole() {
+        let (hive, sub) = WindowsRegistryManager::parse_path(r"Software\Microsoft\Windows");
+        assert_eq!(hive, HKEY_CURRENT_USER);
+        assert_eq!(sub, r"Software\Microsoft\Windows");
+
+        let (hive, sub) = WindowsRegistryManager::parse_path(r"HKEY_CURRENT_USER\Software\X");
+        assert_eq!(hive, HKEY_CURRENT_USER);
+        assert_eq!(sub, r"Software\X");
+
+        let (hive, sub) = WindowsRegistryManager::parse_path(r"HKLM\SOFTWARE\X");
+        assert_eq!(hive, HKEY_LOCAL_MACHINE);
+        assert_eq!(sub, r"SOFTWARE\X");
+
+        let (hive, sub) = WindowsRegistryManager::parse_path("Software");
+        assert_eq!(hive, HKEY_CURRENT_USER);
+        assert_eq!(sub, "Software");
+    }
+
+    #[test]
+    fn test_read_string_resolves_hive_relative_user_shell_folders() {
+        // This expandable value exists for every Windows account; reading it through a
+        // hive-relative path is what the startup Documents-folder recovery depends on.
+        let mgr = WindowsRegistryManager::new();
+        let personal = mgr
+            .read_string(
+                r"Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders",
+                "Personal",
+            )
+            .expect("Personal shell folder must be readable");
+        assert!(!personal.is_empty());
     }
 }

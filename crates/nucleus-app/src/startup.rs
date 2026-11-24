@@ -838,6 +838,17 @@ pub fn run_preflight_checks(
         info!("User environment verified: {}", user_environment.details);
     }
 
+    // Registry keys a handler edited are exported before the edit and re-imported when the
+    // session ends. Exports still present at startup mean the last session did not end
+    // cleanly, so restore them now.
+    let restored_keys = nucleus_script::context_ext::registry::restore_backups(install_root);
+    if restored_keys > 0 {
+        warn!(
+            "Restored {} registry key(s) left modified by a handler in the previous session",
+            restored_keys
+        );
+    }
+
     // 5. Installation Path Safety Check
     let current_exe =
         std::env::current_exe().unwrap_or_else(|_| install_root.join("nucleus-coop.exe"));

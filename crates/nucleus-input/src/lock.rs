@@ -3,6 +3,15 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+/// Process-wide mirror of the most recent lock state, so the running session can apply it
+/// to the game instances without holding a reference to the UI's `InputLock`.
+static GLOBAL_LOCKED: AtomicBool = AtomicBool::new(false);
+
+/// Whether input is currently locked to the game instances.
+pub fn global_input_locked() -> bool {
+    GLOBAL_LOCKED.load(Ordering::SeqCst)
+}
+
 /// Default virtual key code for toggling input lock (VK_END = 0x23).
 pub const DEFAULT_LOCK_TOGGLE_KEY: u32 = 0x23;
 
@@ -31,12 +40,14 @@ impl InputLock {
 
     /// Sets the input lock state directly.
     pub fn set_locked(&self, locked: bool) {
-        self.is_locked.store(locked, Ordering::SeqCst)
+        self.is_locked.store(locked, Ordering::SeqCst);
+        GLOBAL_LOCKED.store(locked, Ordering::SeqCst);
     }
 
     /// Toggles the lock state and returns the new state.
     pub fn toggle(&self) -> bool {
         let prev = self.is_locked.fetch_xor(true, Ordering::SeqCst);
+        GLOBAL_LOCKED.store(!prev, Ordering::SeqCst);
         !prev
     }
 

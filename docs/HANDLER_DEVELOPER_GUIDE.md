@@ -266,6 +266,82 @@ When `Game.Play = function() { ... }` executes for each player instance, the eng
 | `Context.FreezeMemoryInt(address, value)` | `number` | Registers a continuous memory freeze rule (re-asserted every 500ms); returns freeze ID. |
 | `Context.UnfreezeMemory(freezeId)` | `boolean` | Unfreezes and removes a continuous memory freeze rule. |
 
+`Context` also mirrors every non-function `Game` property (`Context.SymlinkExe`, `Context.Hook`, `Context.GameName`, ...), as in the original application.
+
+### 2.4 Original-API Compatibility Members
+
+These members exist so handlers written for the original Nucleus Co-op run unchanged.
+
+#### `Context` properties
+
+| Property | Description |
+|---|---|
+| `Arch` | `"x86"` or `"x64"`, from the game executable. |
+| `PlayerSteamID`, `PlayerSteamIDs` | SteamID64 of this player / of every player. Uses `Game.PlayerSteamIDs` when `Game.UseHandlerSteamIds` is set. |
+| `UserName` | Windows account name. |
+| `NucleusFolder`, `UtilFolder`, `HandlersFolder`, `ScriptFolder` | Install root, `utils`, the handlers folder, and the handler's companion folder (`handlers\<script name>`). |
+| `NucleusUserRoot`, `NucleusEnvironmentRoot`, `NucleusDocumentsRoot` | User profile and Documents roots. |
+| `EnvironmentRoot`, `EnvironmentPlayer`, `DocumentsRoot`, `DocumentsPlayer` | Per-session and per-player Nucleus environment folders (trailing separator included). |
+| `PlayerGameFilesBackupFolder` | Per-player backup folder for game files. |
+| `HasKeyboardPlayer`, `NumControllers`, `NumKeyboards` | Session input summary. |
+| `GamepadGuid`, `x360ceGamepadGuid`, `RawHID` | Identity of the assigned gamepad. |
+| `OrigAspectRatio`, `OrigAspectRatioDecimal`, `IsFullscreen` | Monitor aspect ratio and whether the instance fills its monitor. |
+| `SteamLang`, `EpicLang`, `GogLang` | Store language names. |
+| `UserProfileConfigPath`, `UserProfileSavePath`, `DocumentsConfigPath`, `DocumentsSavePath` | Readable and writable from `Game.Play`. |
+| `KeepEditedRegKeys` | Set to `true` to keep registry edits after the session (they are restored otherwise). |
+
+#### `Context` methods
+
+| Method | Description |
+|---|---|
+| `EditRegKey(base, key, name, value, Nucleus.RegType.X)` | Sets a registry value, exporting the key to `utils\backup` first. `EditRegKeyNoBackup` skips the export. |
+| `ReadRegKey(base, key, name)` | Returns the value as a string, or `null`. |
+| `CreateRegKey`, `DeleteRegKey`, `DeleteRegKeyValues` | Registry key management. `base` is `HKEY_CURRENT_USER`, `HKEY_LOCAL_MACHINE` or `HKEY_USERS`. |
+| `FindFiles(root, pattern[, searchAll])` | Files matching a `*`/`?` pattern. |
+| `FindFilePartialName(root, names)` | Paths under `root` containing any of `names`. |
+| `SearchSubFolder(parent, text)` / `SearchSubFolders` | First / all sub-folders whose path contains `text`. |
+| `CopyFolder(src, dest)`, `CopyScriptFolder(dest)`, `MoveFolder(from, to)` | Folder operations (`MoveFolder` is relative to the instance folder). |
+| `BackupFile(path or paths, overwrite)` | Writes `<name>_NUCLEUS_BACKUP<ext>` next to the file. |
+| `ProceedSymlink()` | Links every file in `Game.SymlinkFiles` into the instance folder. |
+| `HexEdit(file, hexAddress, bytes)` | Writes bytes at an offset. |
+| `ReplacePartialLinesInTextFile(path, ["line\|regex\|replacement"][, encoding])` | Regex replace inside given lines. |
+| `EditTextFile(path, refLines, newLines, encoding)` | Replaces (or, with `"Delete"`, removes) every line containing a reference string. |
+| `ExtractZip(zip, dest, password)`, `EditZipFile(zip, password, savePath, add, remove)` | Zip handling. |
+| `ModifiedDate(file, y, m, d[, h, mi, s])`, `CreatedDate(...)` | Sets file timestamps (local time). |
+| `StartProcess(path, args, asAdmin)`, `RunAdditionalFiles(files, changeWorkingDir, secondsBetween)` | Starts helper programs. |
+| `KillProcessesMatchingProcessName(text)`, `KillProcessesMatchingWindowName(text)` | Ends matching processes. |
+| `SetProtoInputMultipleControllers(c1, c2, c3, c4)` | Assigns up to four pads to this instance (with `Game.ProtoInput.MultipleProtoControllers`). |
+| `HideDesktop([hideTaskbar])`, `HideTaskBar()` | Honoured for the first player. |
+| `RandomString(n[, lower])`, `ConvertToString`, `ToUpperCase`, `ToLowerCase`, `GetFileName`, `NewSaveInfo`, `Wait(ms)` | Helpers. |
+
+#### `Game` properties
+
+| Property | Format | Effect |
+|---|---|---|
+| `CopyFoldersTo`, `SymlinkFoldersTo`, `HardlinkFoldersTo` | `"source\|destination"` | Places a game folder inside each instance. |
+| `RenameAndOrMoveFiles` | `"[instance\|]from\|to"` | Renames/moves a file inside the instance. |
+| `DeleteFiles` | `"[instance\|]file"` | Deletes a file from the instance (asks first unless `IgnoreDeleteFilesPrompt`). |
+| `CopyCustomUtils` | `"name[\|destination[\|instances]]"` | Copies a file or folder from `utils\User`. |
+| `HexEditExe`, `HexEditFile` | one `"find\|replace"` / `"file\|find\|replace"` entry **per player** | ASCII patch of the first match. |
+| `HexEditAllExes`, `HexEditAllFiles` | `"find\|replace"` / `"file\|find\|replace"` | Same, for every instance. |
+| `HexEditExeAddress`, `HexEditFileAddress` | `"[instance\|]address\|hexBytes"` / `"[instance\|]file\|address\|hexBytes"` | Writes bytes at an offset. |
+| `SymlinkFiles` | relative paths | Linked by `Context.ProceedSymlink()`. |
+| `UseHandlerSteamIds`, `PlayerSteamIDs` | | Fixed Steam IDs per player. |
+| `XInputPlusNoIni`, `XInputPlusOldDll`, `UseDInputBlocker` | | Tool deployment variants. |
+| `OnStop` | function | Called when the session ends. |
+
+Hex edits always operate on a private copy of the file: an instance file that is a symlink or hardlink into the installed game is detached first, so the installation is never modified.
+
+#### `Game.ProtoInput`
+
+Every option of the original `ProtoInputOptions` block is read (`InjectStartup`, `InjectRuntime_*Method`, the `*Hook` and `*Filter` switches, `Send*Messages`, the `FocusLoop_*` set, `DrawFakeCursor`, `RenameHandles`, `BlockedMessages`, `MultipleProtoControllers`, ...). Enum-typed options (`SetWindowPosHook`, `MoveWindowHook`, `SetRemoveBorderHook`, `DrawFakeCursor`, `PutMouseInsideWindow`) accept `true`, a number, or the member name.
+
+Handlers can also adjust ProtoInput at runtime from `Game.ProtoInput.OnInputLocked`, `Game.ProtoInput.OnInputUnlocked` and `Game.OnFinishedSetup`, using the global `ProtoInput` object (`InstallHook`, `UninstallHook`, `EnableMessageFilter`, `DisableMessageFilter`, `EnableMessageBlock`, `DisableMessageBlock`, `SetDrawFakeCursor`, `SetDrawFakeCursorFix`, `SetRawInputBypass`, `StartFocusMessageLoop`, `StopFocusMessageLoop`, and the `ProtoInput.Values.*HookID` / `*FilterID` constants) and the `PlayerList` collection (`PlayerList.Count`, `PlayerList[i].ProtoInputInstanceHandle`, `IsKeyboardPlayer`, `ProtoController1..4`, ...). The callbacks are evaluated once per instance right after `Game.Play`; the operations they request (including `System.Threading.Thread.Sleep` pauses) are recorded and replayed on the running instances each time the event occurs. A callback therefore must not depend on state that changes after setup.
+
+The .NET-style helpers handlers commonly call are available: `System.Threading.Thread.Sleep`, `System.Environment.UserName` / `GetEnvironmentVariable`, `System.IO.Path` (`Combine`, `GetDirectoryName`, `GetFileName`, `GetExtension`, `GetFileNameWithoutExtension`), `System.IO.File` (`Exists`, `Copy`, `Delete`, `Move`, `ReadAllText`, `ReadAllLines`, `WriteAllText`, `WriteAllLines`, `AppendAllText`) and `System.IO.Directory` (`GetFiles`, `GetDirectories`, `GetParent`).
+
+When a handler requests injection, the launcher starts the game through ProtoInput (`InjectStartup`) or injects the running process, then selects the keyboard, mouse and controllers assigned to that player. The ProtoInput DLLs are not part of this repository: copy the files from a [ProtoInput release](https://github.com/SplitScreen-Me/ProtoInput) next to `nucleus-coop.exe` (or into `utils\ProtoInput`). Launching a handler that needs them without them stops with a message naming the missing files.
+
 ---
 
 ## 3. Production Handler Templates

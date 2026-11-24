@@ -63,6 +63,56 @@ pub enum ProtoMessageFilterIDs {
 /// Type alias for message filter IDs.
 pub type ProtoInputMessageFilterIDs = ProtoMessageFilterIDs;
 
+impl ProtoHookIDs {
+    /// Maps the numeric ID handler scripts pass (`ProtoInput.Values.*HookID`) to a hook.
+    pub fn from_id(id: u32) -> Option<Self> {
+        use ProtoHookIDs::*;
+        Some(match id {
+            0 => RegisterRawInput,
+            1 => GetRawInputData,
+            2 => MessageFilter,
+            3 => GetCursorPos,
+            4 => SetCursorPos,
+            5 => GetKeyState,
+            6 => GetAsyncKeyState,
+            7 => GetKeyboardState,
+            8 => CursorVisibilityState,
+            9 => ClipCursor,
+            10 => FocusHooks,
+            11 => RenameHandles,
+            12 => Xinput,
+            13 => DinputOrder,
+            14 => SetWindowPos,
+            15 => BlockRawInput,
+            16 => FindWindow,
+            17 => CreateSingleHID,
+            18 => WindowStyle,
+            19 => MoveWindow,
+            20 => AdjustWindowRect,
+            21 => RemoveBorder,
+            _ => return None,
+        })
+    }
+}
+
+impl ProtoMessageFilterIDs {
+    /// Maps the numeric ID handler scripts pass (`ProtoInput.Values.*FilterID`) to a filter.
+    pub fn from_id(id: u32) -> Option<Self> {
+        use ProtoMessageFilterIDs::*;
+        Some(match id {
+            0 => RawInput,
+            1 => MouseMove,
+            2 => MouseActivate,
+            3 => WindowActivate,
+            4 => WindowActivateApp,
+            5 => MouseWheel,
+            6 => MouseButton,
+            7 => KeyboardButton,
+            _ => return None,
+        })
+    }
+}
+
 /// SetWindowPos hook configuration mode matching C# `SetWindowPosHook`.
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
@@ -1761,8 +1811,14 @@ impl ProtoInputRuntime {
             format!("{}\\", dll_str)
         };
 
-        let bitness = detect_process_bitness(pid).unwrap_or(ProcessBitness::X64);
-        let loader = self.loader_for_bitness(bitness)?;
+        // The loader DLL must match the launcher's own bitness (it is loaded in-process);
+        // it selects the matching hook DLL for the target process itself.
+        let host_bitness = if cfg!(target_pointer_width = "64") {
+            ProcessBitness::X64
+        } else {
+            ProcessBitness::X86
+        };
+        let loader = self.loader_for_bitness(host_bitness)?;
 
         let instance_handle = match method {
             InjectMethod::RemoteLoad => {

@@ -10,6 +10,7 @@ nucleus-profile = { workspace = true }
 nucleus-script = { workspace = true }
 nucleus-tools = { workspace = true }
 nucleus-hook = { workspace = true }
+nucleus-input = { workspace = true }
 nucleus-plugin = { workspace = true }
 nucleus-debug = { workspace = true }
 parking_lot = { workspace = true }

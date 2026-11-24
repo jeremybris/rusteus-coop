@@ -397,7 +397,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                         return Ok(());
                     }
                 };
-                let dest_dir = std::path::Path::new(&app_settings.handlers_directory);
+                let dest_dir = nucleus_engine::game_manager::resolve_install_relative(
+                    std::path::Path::new(&app_settings.handlers_directory),
+                );
+                let dest_dir = dest_dir.as_path();
                 println!(
                     "Downloading and extracting handler '{}' to '{}'...",
                     handler_id,

@@ -269,6 +269,11 @@ impl GameSession {
         // Re-enforce active Cheat Engine parity frozen memory values across all instances
         nucleus_hook::memory_engine::MemoryEngine::apply_frozen_slots();
 
+        // Hand keyboards/mice to (or back from) the instances when the lock key was pressed.
+        if let Some(ref mut handler) = self.handler {
+            handler.sync_input_lock();
+        }
+
         Ok(())
     }
 

@@ -1610,12 +1610,11 @@ pub fn render_setup_view(
                                                         dev_opts.push("Keyboard & Mouse (Paired)".to_string());
                                                     }
                                                     if app_settings.developer_mode {
-                                                        dev_opts.push("Keyboard #1 (ProtoInput)".to_string());
-                                                        dev_opts.push("Keyboard #2 (ProtoInput)".to_string());
-                                                        dev_opts.push("Mouse #1 (ProtoInput)".to_string());
-                                                        dev_opts.push("Mouse #2 (ProtoInput)".to_string());
-                                                        dev_opts.push("Keyboard #1 + Mouse #1 (ProtoInput)".to_string());
-                                                        dev_opts.push("Keyboard #2 + Mouse #2 (ProtoInput)".to_string());
+                                                        // One entry per attached keyboard/mouse, plus pairs.
+                                                        dev_opts.extend(nucleus_input::proto_assignment_labels(
+                                                            &nucleus_input::cached_raw_devices(),
+                                                            |n| format!("Keyboard #{n} + Mouse #{n} (ProtoInput)"),
+                                                        ));
                                                     }
                                                     if detected_devices.iter().any(|d| !d.is_virtual) {
                                                         dev_opts.push("DirectInput Emulation (x360ce)".to_string());

@@ -1811,6 +1811,8 @@ impl JsBridge {
             .set(JsString::from("UnfreezeMemory"), unfreeze_mem_fn, false, context)
             .map_err(|e| NucleusError::Script(e.to_string()))?;
 
+        crate::context_ext::install(context, &ctx_obj, handler_ctx)?;
+
         // Register global Context
         context
             .register_global_property(

@@ -89,6 +89,11 @@ serde_ini = "0.2"
 # XML parsing
 quick-xml = { version = "0.37", features = ["serialize"] }
 
+# Text handling for handler script helpers
+regex = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+encoding_rs = "0.8"
+
 # UUID generation
 uuid = { version = "1", features = ["v4"] }
 

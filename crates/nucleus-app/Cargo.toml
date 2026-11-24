@@ -14,6 +14,7 @@ path = "src/bin/elevator.rs"
 [dependencies]
 nucleus-common = { workspace = true }
 nucleus-engine = { workspace = true }
+nucleus-script = { workspace = true }
 nucleus-ui = { workspace = true }
 nucleus-input = { workspace = true }
 nucleus-platform = { workspace = true }

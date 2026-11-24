@@ -49,6 +49,21 @@ use std::sync::Arc;
 /// 1. `<custom_nucleus_data_dir>/<GUID>` if configured.
 /// 2. `<InstallRoot>/content/<GUID>` alongside executable or working dir (created if missing).
 /// 3. `%APPDATA%/Nucleus Coop/<GUID>` (via `dirs::data_dir()`) as permission fallback.
+/// Resolves a configured path against the installation folder when it is relative.
+///
+/// Settings store portable paths such as `handlers`. Those must not depend on the working
+/// directory the launcher happened to be started from (a shortcut, a terminal, or an elevated
+/// relaunch each use a different one).
+pub fn resolve_install_relative(path: &Path) -> PathBuf {
+    if path.is_absolute() || path.as_os_str().is_empty() {
+        return path.to_path_buf();
+    }
+    match nucleus_common::Globals::try_get() {
+        Some(globals) => globals.install_root.join(path),
+        None => path.to_path_buf(),
+    }
+}
+
 pub fn get_app_content_path(guid: &str, custom_nucleus_data_dir: Option<&Path>) -> PathBuf {
     // 1. Custom nucleus data directory from AppSettings
     if let Some(custom) = custom_nucleus_data_dir {
@@ -247,7 +262,7 @@ impl GameManager {
 
     /// Sets the directory to scan for JavaScript handler scripts.
     pub fn set_handlers_dir(&mut self, path: impl Into<std::path::PathBuf>) {
-        self.handlers_dir = path.into();
+        self.handlers_dir = resolve_install_relative(&path.into());
     }
 
     /// Returns the directory being scanned for JavaScript handler scripts.
@@ -1625,11 +1640,18 @@ mod tests {
     fn test_canonical_staging_path_resolution() {
         let path = get_app_content_path("Left 4 Dead 2", None);
         let temp = std::env::temp_dir();
-        assert!(
-            !path.starts_with(&temp),
-            "Staging path should not be in temp_dir: {:?}",
-            path
-        );
+        // The default staging folder sits next to the executable, so the check only means
+        // something when the test binary itself was not built under the temp folder.
+        let built_in_temp = std::env::current_exe()
+            .map(|exe| exe.starts_with(&temp))
+            .unwrap_or(false);
+        if !built_in_temp {
+            assert!(
+                !path.starts_with(&temp),
+                "Staging path should not be in temp_dir: {:?}",
+                path
+            );
+        }
         assert!(path.ends_with("Left 4 Dead 2"));
 
         let custom = std::path::PathBuf::from("C:\\NucleusCustom");

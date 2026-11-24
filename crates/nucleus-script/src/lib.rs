@@ -4,12 +4,15 @@
 //! along with configuration structures, runtime context, and bridge interfaces.
 
 pub mod bridge;
+pub mod context_ext;
 pub mod debugger;
 pub mod engine;
 pub mod enums;
 pub mod handler_config;
 pub mod handler_context;
+pub mod legacy_props;
 pub mod meta_info;
+pub mod proto_script;
 
 pub use bridge::JsBridge;
 pub use engine::ScriptEngine;

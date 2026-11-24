@@ -174,6 +174,9 @@ Detailed guides and references are available in the [`docs/`](docs/) directory:
   rustup update
   ```
 - **Build Tools**: Visual Studio 2022 C++ Build Tools with Windows SDK.
+- **MSVC toolchain**: the workspace targets `x86_64-pc-windows-msvc`. If your default toolchain is the GNU one (`rustup show` lists `stable-x86_64-pc-windows-gnu` as active), the build stops with `error calling dlltool`; either run `rustup default stable-x86_64-pc-windows-msvc` or prefix commands with `cargo +stable-x86_64-pc-windows-msvc`.
+- **Short checkout path**: keep the repository (or `CARGO_TARGET_DIR`) under a short path. Build scripts fail with "The system cannot find the path specified" once paths exceed the Windows 260-character limit.
+- **ProtoInput (optional, for multiple keyboards/mice and per-instance input hooks)**: the ProtoInput DLLs are not part of this repository. Copy the files from a [ProtoInput release](https://github.com/SplitScreen-Me/ProtoInput) next to `nucleus-coop.exe` or into `utils\ProtoInput`. Handlers that set `Game.ProtoInput.Inject*` need them.
 
 ### Building Rusteus-Coop
 > [!IMPORTANT]

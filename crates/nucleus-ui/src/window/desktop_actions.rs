@@ -635,12 +635,11 @@ impl MainWindow {
 
         // 3. ProtoInput Individual Keyboards & Mice (Developer Mode only)
         if self.app_settings.developer_mode {
-            options.push("Keyboard #1 (ProtoInput)".to_string());
-            options.push("Keyboard #2 (ProtoInput)".to_string());
-            options.push("Mouse #1 (ProtoInput)".to_string());
-            options.push("Mouse #2 (ProtoInput)".to_string());
-            options.push("K#1 + M#1 (ProtoInput Pair)".to_string());
-            options.push("K#2 + M#2 (ProtoInput Pair)".to_string());
+            // One entry per attached keyboard/mouse, plus pairs.
+            options.extend(nucleus_input::proto_assignment_labels(
+                &nucleus_input::cached_raw_devices(),
+                |n| format!("K#{n} + M#{n} (ProtoInput Pair)"),
+            ));
         }
 
         // 3. DirectInput Emulation (x360ce) - if at least one physical gamepad is detected
